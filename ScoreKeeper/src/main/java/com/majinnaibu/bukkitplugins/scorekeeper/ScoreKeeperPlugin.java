@@ -1,4 +1,4 @@
-package com.majinnaibu.bukkit.plugins.scorekeeper;
+package com.majinnaibu.bukkitplugins.scorekeeper;
 
 import java.util.HashMap;
 import java.util.logging.Logger;
@@ -7,11 +7,11 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import com.majinnaibu.bukkit.plugins.scorekeeper.commands.ScoreAddCommand;
-import com.majinnaibu.bukkit.plugins.scorekeeper.commands.ScoreArchiveCommand;
-import com.majinnaibu.bukkit.plugins.scorekeeper.commands.ScoreGetCommand;
-import com.majinnaibu.bukkit.plugins.scorekeeper.commands.ScoreResetCommand;
-import com.majinnaibu.bukkit.plugins.scorekeeper.commands.ScoreSubtractCommand;
+import com.majinnaibu.bukkitplugins.scorekeeper.commands.ScoreAddCommand;
+import com.majinnaibu.bukkitplugins.scorekeeper.commands.ScoreArchiveCommand;
+import com.majinnaibu.bukkitplugins.scorekeeper.commands.ScoreGetCommand;
+import com.majinnaibu.bukkitplugins.scorekeeper.commands.ScoreResetCommand;
+import com.majinnaibu.bukkitplugins.scorekeeper.commands.ScoreSubtractCommand;
 
 public class ScoreKeeperPlugin extends JavaPlugin {
 	private final HashMap<Player, Integer> _playerScores = new HashMap<Player, Integer>();
