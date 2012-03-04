@@ -6,41 +6,46 @@
 	<packaging>jar</packaging>
 	<version>0.2-SNAPSHOT</version>
 	<name>bukkitplugin</name>
-	<url>http://maven.apache.org</url>
+	<description></description>
+	<url>http://www.github.com/headhunter45/ScoreKeeper</url>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
+	
+	<scm>
+	  <connection>scm:git:git://github.com/headhunter45/ScoreKeeper.git</connection>
+	  <url>https://github.com/headhunter45/ScoreKeeper</url>
+	  <developerConnection>scm:git:git@github.com:headhunter45/ScoreKeeper.git</developerConnection>
+	</scm>
+	
+	<repositories>
+	  <repository>
+	    <id>majinnaibu-repo</id>
+	    <url>http://repo.majinnaibu.com</url>
+	  </repository>
+	  
+      <repository>
+        <id>bukkit-repo</id>
+        <url>http://repo.bukkit.org/content/groups/public</url>
+      </repository>
+	</repositories>
+	
 	<dependencies>
-		<dependency>
-			<groupId>org.bukkit</groupId>
-			<artifactId>bukkit</artifactId>
-			<version>0.0.1-SNAPSHOT</version>
-			<type>jar</type>
-			<scope>compile</scope>
-		</dependency>
+	  <!-- Bukkit -->
+      <dependency>
+		<groupId>org.bukkit</groupId>
+		<artifactId>bukkit</artifactId>
+		<version>1.1-R6</version>
+		<type>jar</type>
+		<scope>compile</scope>
+	  </dependency>
+	  <!-- 
 		<dependency>
 			<groupId>junit</groupId>
 			<artifactId>junit</artifactId>
 			<version>3.8.1</version>
 			<scope>test</scope>
 		</dependency>
+		 -->
 	</dependencies>
-	<build>
-		<plugins>
-			<plugin>
-				<groupId>org.apache.maven.plugins</groupId>
-				<artifactId>maven-compiler-plugin</artifactId>
-				<configuration>
-					<source>1.6</source>
-					<target>1.6</target>
-				</configuration>
-			</plugin>
-		</plugins>
-	</build>
-	<repositories>
-		<repository>
-			<id>bukkit-repo</id>
-			<url>http://repo.bukkit.org/artifactory/repo</url>
-		</repository>
-	</repositories>
 </project>
