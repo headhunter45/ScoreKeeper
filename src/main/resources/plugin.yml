@@ -1,6 +1,7 @@
 name: ScoreKeeper
-main: com.majinnaibu.bukkit.plugins.scorekeeper.ScoreKeeperPlugin
-version: 0.0a
+main: com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin
+version: 0.1.0
+api-version: 1.21
 commands:
     score-get:
         description: Displays the player's score.

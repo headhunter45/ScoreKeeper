@@ -1,4 +1,4 @@
-package com.majinnaibu.bukkitplugins.scorekeeper.commands;
+package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -6,12 +6,12 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import com.majinnaibu.bukkitplugins.scorekeeper.ScoreKeeperPlugin;
+import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin;
 
-public class ScoreAddCommand implements CommandExecutor {
+public class ScoreResetCommand implements CommandExecutor {
 	private final ScoreKeeperPlugin _plugin;
 	
-	public ScoreAddCommand(ScoreKeeperPlugin scoreKeeperPlugin) {
+	public ScoreResetCommand(ScoreKeeperPlugin scoreKeeperPlugin) {
 		_plugin = scoreKeeperPlugin;
 	}
 
@@ -22,8 +22,9 @@ public class ScoreAddCommand implements CommandExecutor {
 			String label,
 			String[] split
 	) {
+		sender.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] archive command unimplemented ");
+	
 		boolean rcon = !(sender instanceof Player);
-		int amount = 0;
 		Player targetPlayer = null;
 		
 		if(split.length == 1){
@@ -33,7 +34,7 @@ public class ScoreAddCommand implements CommandExecutor {
 			}else{
 				targetPlayer = (Player)sender;
 				try{
-					amount = Integer.parseInt(split[0]);
+					
 				}catch(NumberFormatException ex){
 					echoError(sender, rcon, "amount must be an integer");
 					return true;
@@ -47,7 +48,7 @@ public class ScoreAddCommand implements CommandExecutor {
 			}
 			
 			try{
-				amount = Integer.parseInt(split[1]);
+				
 			}catch(NumberFormatException ex){
 				echoError(sender, rcon, "amount must be an integer");
 				return true;
@@ -57,19 +58,19 @@ public class ScoreAddCommand implements CommandExecutor {
 			return true;
 		}
 		
-		_plugin.addScore(targetPlayer,  amount);
+		_plugin.resetPlayerScore(targetPlayer);
 		return true;
 	}
-
+	
 	private void echoError(CommandSender sender, boolean rcon, String string) {
 		sender.sendMessage("[" + ChatColor.RED + "ScoreKeeper" + ChatColor.WHITE + "] " + string);
 	}
 
 	private void echoUsage(CommandSender sender, boolean rcon) {
 		if(rcon){
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-add " + ChatColor.GREEN + "<playername> <amount>");
+			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-reset " + ChatColor.GREEN + "<playername>");
 		}else{
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-add " + ChatColor.YELLOW + "[playername] " + ChatColor.GREEN + "<amount>");
+			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-reset " + ChatColor.YELLOW + "[playername]");
 		}
 	}
 }

@@ -1,4 +1,4 @@
-package com.majinnaibu.bukkitplugins.scorekeeper.commands;
+package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -6,12 +6,12 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import com.majinnaibu.bukkitplugins.scorekeeper.ScoreKeeperPlugin;
+import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin;
 
-public class ScoreSubtractCommand implements CommandExecutor {
+public class ScoreAddCommand implements CommandExecutor {
 	private final ScoreKeeperPlugin _plugin;
 	
-	public ScoreSubtractCommand(ScoreKeeperPlugin scoreKeeperPlugin) {
+	public ScoreAddCommand(ScoreKeeperPlugin scoreKeeperPlugin) {
 		_plugin = scoreKeeperPlugin;
 	}
 
@@ -33,7 +33,7 @@ public class ScoreSubtractCommand implements CommandExecutor {
 			}else{
 				targetPlayer = (Player)sender;
 				try{
-					amount=Integer.parseInt(split[0]);
+					amount = Integer.parseInt(split[0]);
 				}catch(NumberFormatException ex){
 					echoError(sender, rcon, "amount must be an integer");
 					return true;
@@ -57,19 +57,19 @@ public class ScoreSubtractCommand implements CommandExecutor {
 			return true;
 		}
 		
-		_plugin.subtractScore(targetPlayer, amount);
+		_plugin.addScore(targetPlayer,  amount);
 		return true;
 	}
-	
+
 	private void echoError(CommandSender sender, boolean rcon, String string) {
 		sender.sendMessage("[" + ChatColor.RED + "ScoreKeeper" + ChatColor.WHITE + "] " + string);
 	}
 
 	private void echoUsage(CommandSender sender, boolean rcon) {
 		if(rcon){
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-subtract " + ChatColor.GREEN + "<playername> <amount>");
+			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-add " + ChatColor.GREEN + "<playername> <amount>");
 		}else{
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-subtract " + ChatColor.YELLOW + "[playername] " + ChatColor.GREEN + "<amount>");
+			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-add " + ChatColor.YELLOW + "[playername] " + ChatColor.GREEN + "<amount>");
 		}
 	}
 }

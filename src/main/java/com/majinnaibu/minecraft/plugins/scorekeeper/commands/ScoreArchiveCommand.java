@@ -1,4 +1,4 @@
-package com.majinnaibu.bukkitplugins.scorekeeper.commands;
+package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
 import org.bukkit.ChatColor;
 import org.bukkit.command.Command;
@@ -6,7 +6,7 @@ import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
-import com.majinnaibu.bukkitplugins.scorekeeper.ScoreKeeperPlugin;
+import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin;
 
 public class ScoreArchiveCommand implements CommandExecutor {
 	private final ScoreKeeperPlugin _plugin;
