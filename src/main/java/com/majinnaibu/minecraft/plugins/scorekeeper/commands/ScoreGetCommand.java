@@ -33,7 +33,7 @@ public class ScoreGetCommand implements CommandExecutor {
 				return true; //false;
 			}
 		}else if(split.length == 1){
-			targetPlayer = _plugin.getServer().getPlayer(split[0]);
+			targetPlayer = _plugin.getServer().getPlayerExact(split[0]);
 		}else if(split.length > 1){
 			echoUsage(sender, rcon);
 			return true; //false;

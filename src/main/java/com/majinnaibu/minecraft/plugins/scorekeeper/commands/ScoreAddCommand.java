@@ -40,7 +40,7 @@ public class ScoreAddCommand implements CommandExecutor {
 				}
 			}
 		}else if(split.length == 2){
-			targetPlayer = _plugin.getServer().getPlayer(split[0]);
+			targetPlayer = _plugin.getServer().getPlayerExact(split[0]);
 			if(targetPlayer == null){
 				echoError(sender, rcon, "Can't find a player with that name");
 				return true;
