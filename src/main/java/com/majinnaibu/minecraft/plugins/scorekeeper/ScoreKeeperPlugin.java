@@ -2,6 +2,7 @@ package com.majinnaibu.minecraft.plugins.scorekeeper;
 
 import java.util.HashMap;
 import java.util.logging.Logger;
+import java.util.UUID;
 
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
@@ -14,7 +15,7 @@ import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreResetCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreSubtractCommand;
 
 public class ScoreKeeperPlugin extends JavaPlugin {
-	private final HashMap<Player, Integer> _playerScores = new HashMap<Player, Integer>();
+	private final HashMap<UUID, Integer> _playerScores = new HashMap<UUID, Integer>();
 	
 	public final Logger log = Logger.getLogger("Minecraft");
 	
@@ -41,21 +42,24 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 	}
 
 	public int getPlayerScore(Player player) {
-		if(!_playerScores.containsKey(player)){
-			_playerScores.put(player, 0);
+		UUID uuid = player.getUniqueId();
+		if(!_playerScores.containsKey(uuid)){
+			_playerScores.put(uuid, 0);
 		}
 		
-		return _playerScores.get(player);
+		return _playerScores.get(uuid);
 	}
 
 	public void addScore(Player player, int amount) {
+		UUID uuid = player.getUniqueId();
 		int score = getPlayerScore(player);
-		_playerScores.put(player,  score + amount);
+		_playerScores.put(uuid,  score + amount);
 	}
 
 	public void subtractScore(Player player, int amount) {
+		UUID uuid = player.getUniqueId();
 		int score = getPlayerScore(player);
-		_playerScores.put(player, score - amount);
+		_playerScores.put(uuid, score - amount);
 	}
 
 	public void resetPlayerScore(Player targetPlayer) {
