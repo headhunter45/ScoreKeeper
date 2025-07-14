@@ -1,7 +1,6 @@
 package com.majinnaibu.minecraft.plugins.scorekeeper;
 
 import java.util.HashMap;
-import java.util.logging.Logger;
 import java.util.UUID;
 
 import org.bukkit.entity.Player;
@@ -16,10 +15,7 @@ import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreSubtractComman
 
 public class ScoreKeeperPlugin extends JavaPlugin {
 	private final HashMap<UUID, Integer> _playerScores = new HashMap<UUID, Integer>();
-	
-	public final Logger log = Logger.getLogger("Minecraft");
-	
-	
+
 	@Override
 	public void onDisable() {
 		//TODO: save score data to file
@@ -38,7 +34,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 		//TODO: load score data from file
 		
 		PluginDescriptionFile pdFile = this.getDescription();
-		log.info(pdFile.getName() + " version " + pdFile.getVersion() + " is enabled!");
+		getLogger().info(pdFile.getName() + " version " + pdFile.getVersion() + " is enabled!");
 	}
 
 	public int getPlayerScore(Player player) {
