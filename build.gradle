@@ -3,7 +3,7 @@ plugins {
 }
 
 group = 'com.majinnaibu.minecraft.plugins.'
-version = '0.2-SNAPSHOT'
+version = '0.2.0-SNAPSHOT'
 
 description = "ScoreKeeper"
 
@@ -25,4 +25,10 @@ dependencies {
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
     // options.compilerArgs << "-Xlint:deprecation"
+}
+
+processResources {
+    filesMatching('plugin.yml') {
+        expand(project.properties)
+    }
 }
