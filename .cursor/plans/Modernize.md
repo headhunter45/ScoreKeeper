@@ -260,3 +260,58 @@ A completely separate API and server implementation, not based on Bukkit/Spigot/
 | Command registration         | ✅ Valid, check plugin.yml             |
 | Player lookup                | ⚠️  Use getPlayerExact for safety      |
 | Hardcoded Bukkit features    | ✅ None found                          |
+
+---
+
+## Appendix: Migrating from Maven to Gradle
+
+Switching from Maven to Gradle involves several steps to ensure a smooth transition and a working build system for your plugin.
+
+### Migration Steps
+- **Initialize Gradle in the Project**
+  - Use `gradle init` or manually create a `build.gradle` file.
+- **Migrate Project Metadata**
+  - Set `group`, `version`, and `description` in `build.gradle`.
+- **Migrate Dependencies**
+  - Copy dependencies from `pom.xml` to the `dependencies` block in `build.gradle`.
+  - Add the PaperMC (or Spigot) repository.
+- **Configure Java Version**
+  - Set the Java toolchain or source/target compatibility in `build.gradle`.
+- **Migrate Resource Handling**
+  - Ensure `plugin.yml` and any other resources are in `src/main/resources`.
+- **Migrate Build Plugins/Tasks**
+  - If you used Maven plugins (e.g., for shading), add equivalent Gradle plugins (e.g., Shadow plugin).
+- **Update .gitignore**
+  - Add Gradle-specific files (`.gradle/`, `build/`) and remove Maven-specific ones (`target/`).
+- **Remove Maven Files**
+  - Remove `pom.xml` and any Maven wrapper files if not needed.
+- **Update Documentation and Scripts**
+  - Update README, CONTRIBUTING, and any scripts to use Gradle commands (`./gradlew build`, etc.).
+- **Test the Build**
+  - Run `./gradlew build` and verify the output jar works as expected.
+
+### Task List for Migration
+- [ ] Initialize Gradle build system
+- [ ] Set project metadata in `build.gradle`
+- [ ] Add repositories and dependencies
+- [ ] Configure Java version
+- [ ] Ensure resource handling for `plugin.yml`
+- [ ] Add Gradle plugins as needed (e.g., Shadow)
+- [ ] Update `.gitignore` for Gradle
+- [ ] Remove Maven files
+- [ ] Update documentation and scripts
+- [ ] Test the Gradle build
+
+#### Summary Table
+| Step                        | Description                                    |
+|-----------------------------|------------------------------------------------|
+| Initialize Gradle           | Create `build.gradle` or use `gradle init`     |
+| Project Metadata            | Set group, version, description                |
+| Dependencies                | Add PaperMC repo and dependencies              |
+| Java Version                | Set Java toolchain/source compatibility        |
+| Resource Handling           | Ensure `plugin.yml` in resources               |
+| Build Plugins               | Add Shadow or other plugins as needed          |
+| .gitignore                  | Add Gradle files, remove Maven files           |
+| Remove Maven Files          | Delete `pom.xml`, Maven wrapper                |
+| Documentation/Scripts       | Update to use Gradle                           |
+| Test Build                  | Run and verify `./gradlew build`               |
