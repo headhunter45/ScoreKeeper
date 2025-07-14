@@ -23,8 +23,6 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 
 	@Override
 	public void onEnable() {
-		//PluginManager pm = getServer().getPluginManager();
-		//pm.registerEvent(Event.Type.BLOCK_PHYSICS, new BlockListener(){}, Priority.Normal, this);
 		getCommand("score-get").setExecutor(new ScoreGetCommand(this));
 		getCommand("score-add").setExecutor(new ScoreAddCommand(this));
 		getCommand("score-subtract").setExecutor(new ScoreSubtractCommand(this));
