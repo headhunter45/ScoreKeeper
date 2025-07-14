@@ -4,7 +4,7 @@ This checklist will guide the process of updating the ScoreKeeper plugin for com
 
 ## Modernization Plan
 
-- [ ] **Analyze current codebase**
+- [x] **Analyze current codebase**
   - Review all source files and dependencies
   - Identify deprecated or removed APIs
 - [ ] **Update build system**
@@ -225,3 +225,38 @@ A completely separate API and server implementation, not based on Bukkit/Spigot/
   - `MINECRAFT_SERVER_PATH`: The root path of your Paper server directory.
   - `MINECRAFT_SERVER_JAR`: The path to your Paper server jar (relative to `MINECRAFT_SERVER_PATH` or absolute).
 - See `CONTRIBUTING.md` for detailed setup instructions. 
+
+---
+
+## Appendix: Codebase Analysis and Migration Notes
+
+### Deprecated or Removed API Usage
+- **Player as HashMap key:**
+  - Uses `HashMap<Player, Integer>`. This is not reliable; use `UUID` as the key instead.
+- **Logger usage:**
+  - Uses `Logger.getLogger("Minecraft")`. Use `getLogger()` from `JavaPlugin` for modern plugins.
+- **Old event registration (commented out):**
+  - Uses deprecated Bukkit event registration. Modernize with `@EventHandler` and `registerEvents` if needed.
+- **Player lookup:**
+  - Uses `getServer().getPlayer(name)`. This is case-sensitive and only matches exact names in modern Paper/Spigot. Consider using `getPlayerExact` or handling case-insensitivity.
+
+### Hardcoded Bukkit References
+- All imports are from `org.bukkit.*`, which is compatible with Paper. No hardcoded Bukkit-only features found.
+- No use of Bukkit’s old event system in active code (just commented out).
+
+### Recommendations for Paper Migration
+- Switch all player score storage to use `UUID` instead of `Player` as the key.
+- Use `getLogger()` from `JavaPlugin` for logging.
+- If you add event listeners, use the modern event system (`@EventHandler`, `registerEvents`).
+- Review and update player lookup logic for case sensitivity and exact matching.
+- Ensure all commands are properly defined in `plugin.yml`.
+
+#### Summary Table
+| Issue/Pattern                | Status / Recommendation                |
+|------------------------------|----------------------------------------|
+| Player as HashMap key        | ❌ Use UUID instead                    |
+| Logger                       | ❌ Use getLogger()                     |
+| Old event registration       | ❌ Use @EventHandler, registerEvents   |
+| Command registration         | ✅ Valid, check plugin.yml             |
+| Player lookup                | ⚠️  Use getPlayerExact for safety      |
+| Hardcoded Bukkit features    | ✅ None found                          |
