@@ -1,15 +1,23 @@
 plugins {
-    id 'java'
+    id 'java-library'
+    id 'maven-publish'
 }
 
-group = 'com.majinnaibu.minecraft.plugins.'
-version = '0.2.0-SNAPSHOT'
-
+group = 'com.majinnaibu.minecraft.plugins'
+version = '0.2.1-SNAPSHOT'
 description = "ScoreKeeper"
 
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+publishing {
+    publications {
+        maven(MavenPublication) {
+            from components.java
+        }
     }
 }
 
@@ -27,7 +35,12 @@ tasks.withType(JavaCompile).configureEach {
     // options.compilerArgs << "-Xlint:deprecation"
 }
 
+tasks.withType(Javadoc).configureEach {
+	options.encoding = 'UTF-8'
+}
+
 processResources {
+    inputs.property "version", project.version
     filesMatching('plugin.yml') {
         expand(project.properties)
     }

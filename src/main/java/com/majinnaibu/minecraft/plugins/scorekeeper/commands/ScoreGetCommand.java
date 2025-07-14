@@ -1,6 +1,8 @@
 package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -44,32 +46,40 @@ public class ScoreGetCommand implements CommandExecutor {
 			return true;
 		}
 		
-		int score = _plugin.getPlayerScore(targetPlayer);
+		int score = _plugin.getScore(targetPlayer);
 		
 		if(!rcon){
 			if(sender == targetPlayer){
-				targetPlayer.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] Your score is " + ChatColor.GREEN + score);
+				_plugin.sendMessage(targetPlayer, Component.text("Your score is ").append(Component.text(score).color(NamedTextColor.GREEN)));
 			}else{
-				sender.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] " + targetPlayer.getName() + "'s score is " + ChatColor.GREEN + score);
+				_plugin.sendMessage(sender, Component.text(targetPlayer.getName() + "'s score is ").append(Component.text(score).color(NamedTextColor.GREEN)));
 			}
 			
 			return true;
 		}else{
-			sender.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] " + targetPlayer.getName() + "'s score is " + ChatColor.GREEN + score);
+			_plugin.sendMessage(sender, 
+			Component.text(targetPlayer.getName() + "'s score is ").append(Component.text(score).color(NamedTextColor.GREEN)));
 			return true;
 		}
 	}
 
 	private void echoError(CommandSender sender, boolean rcon, String string) {
-		sender.sendMessage("[" + ChatColor.RED + "ScoreKeeper" + ChatColor.WHITE + "] " + string);
+		_plugin.sendMessage(sender, Component.text(string).color(NamedTextColor.RED));
 	}
 
 	private void echoUsage(CommandSender sender, boolean rcon) {
 		if(rcon){
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-get " + ChatColor.GREEN + "<playername>");
+			Component message = 
+				Component.text("Usage").color(NamedTextColor.DARK_PURPLE)
+				.append(Component.text(": score-get ").color(NamedTextColor.WHITE))
+				.append(Component.text("<playerName>").color(NamedTextColor.GREEN));
+			_plugin.sendMessage(sender, message);
 		}else{
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-get " + ChatColor.YELLOW + "[playername]");
+			Component message = 
+				Component.text("Usage").color(NamedTextColor.DARK_PURPLE)
+				.append(Component.text(": /score-get ").color(NamedTextColor.WHITE))
+				.append(Component.text("[playerName]").color(NamedTextColor.YELLOW));
+			_plugin.sendMessage(sender, message);
 		}
-		
-	}	
+	}
 }

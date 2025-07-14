@@ -1,6 +1,8 @@
 package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -62,14 +64,23 @@ public class ScoreAddCommand implements CommandExecutor {
 	}
 
 	private void echoError(CommandSender sender, boolean rcon, String string) {
-		sender.sendMessage("[" + ChatColor.RED + "ScoreKeeper" + ChatColor.WHITE + "] " + string);
+		_plugin.sendMessage(sender, Component.text(string).color(NamedTextColor.RED));
 	}
 
 	private void echoUsage(CommandSender sender, boolean rcon) {
 		if(rcon){
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-add " + ChatColor.GREEN + "<playername> <amount>");
+			Component message = 
+				Component.text("Usage").color(NamedTextColor.DARK_PURPLE)
+				.append(Component.text(": score-add ").color(NamedTextColor.WHITE))
+				.append(Component.text("<playerName> <amount>").color(NamedTextColor.GREEN));
+			_plugin.sendMessage(sender, message);
 		}else{
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-add " + ChatColor.YELLOW + "[playername] " + ChatColor.GREEN + "<amount>");
+			Component message = 
+				Component.text("Usage").color(NamedTextColor.DARK_PURPLE)
+				.append(Component.text(": /score-add ").color(NamedTextColor.WHITE))
+				.append(Component.text("[playerName] ").color(NamedTextColor.YELLOW))
+				.append(Component.text("<amount>").color(NamedTextColor.GREEN));
+			_plugin.sendMessage(sender, message);
 		}
 	}
 }

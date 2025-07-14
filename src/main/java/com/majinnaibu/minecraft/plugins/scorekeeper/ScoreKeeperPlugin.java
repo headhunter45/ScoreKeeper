@@ -2,7 +2,12 @@ package com.majinnaibu.minecraft.plugins.scorekeeper;
 
 import java.util.HashMap;
 import java.util.UUID;
+import java.util.logging.Level;
 
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
+import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.PluginDescriptionFile;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -15,10 +20,15 @@ import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreSubtractComman
 
 public class ScoreKeeperPlugin extends JavaPlugin {
 	private final HashMap<UUID, Integer> _playerScores = new HashMap<UUID, Integer>();
+	public final String _logPrefix = "[ScoreKeeper] ";
+	public final Component _messagePrefix = Component.text("[")
+		.append(Component.text("ScoreKeeper").color(NamedTextColor.AQUA))
+		.append(Component.text("] ").color(NamedTextColor.WHITE));
 
 	@Override
 	public void onDisable() {
 		//TODO: save score data to file
+		logWarning("Unable to save scores to file. This feature is not implemented yet.");
 	}
 
 	@Override
@@ -30,34 +40,68 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 		getCommand("score-archive").setExecutor(new ScoreArchiveCommand(this));
 
 		//TODO: load score data from file
+		logWarning("Unable to load scores from file. This feature is not implemented yet.");
 		
-		PluginDescriptionFile pdFile = this.getDescription();
-		getLogger().info(pdFile.getName() + " version " + pdFile.getVersion() + " is enabled!");
+		logInfo(getPluginMeta().getName() + " version " + getPluginMeta().getVersion() + " is enabled.");
 	}
 
-	public int getPlayerScore(Player player) {
-		UUID uuid = player.getUniqueId();
-		if(!_playerScores.containsKey(uuid)){
-			_playerScores.put(uuid, 0);
-		}
-		
-		return _playerScores.get(uuid);
-	}
-
+	//region Commands
 	public void addScore(Player player, int amount) {
-		UUID uuid = player.getUniqueId();
-		int score = getPlayerScore(player);
-		_playerScores.put(uuid,  score + amount);
+		int oldScore = getPlayerScore(player);
+		setPlayerScore(player, oldScore + amount);
+	}
+
+	public void archiveScore(Player player) {
+		logWarning("Unable to archive score for " + player.getName() + ".");
+	}
+
+	public int getScore(Player player) {
+		return getPlayerScore(player);
+	}
+
+	public void resetScore(Player player) {
+		setPlayerScore(player, 0);
+	}
+
+	public void setScore(Player player, int score) {
+		setPlayerScore(player, score);
 	}
 
 	public void subtractScore(Player player, int amount) {
-		UUID uuid = player.getUniqueId();
-		int score = getPlayerScore(player);
-		_playerScores.put(uuid, score - amount);
+		int oldScore = getPlayerScore(player);
+		setPlayerScore(player, oldScore - amount);
+	}
+	//endregion
+
+	//region Utiilty Methods
+	public void sendMessage(CommandSender reciever, Component message) {
+		reciever.sendMessage(_messagePrefix.append(message));
 	}
 
-	public void resetPlayerScore(Player targetPlayer) {
-		// TODO Auto-generated method stub
-		
+	private int getPlayerScore(Player player) {
+		UUID uuid = player.getUniqueId();
+		if(!_playerScores.containsKey(uuid)){
+			_playerScores.put(uuid, 0);
+		}		
+		return _playerScores.get(uuid);
 	}
+
+	private void setPlayerScore(Player player, int score) {
+		_playerScores.put(player.getUniqueId(), score);
+	}
+	//endregion
+
+	//region Logging
+	public void logError(Exception ex) {
+		getLogger().log(Level.SEVERE, _logPrefix + ex.toString());
+	}
+
+	public void logInfo(String message) {
+		getLogger().info(_logPrefix + message);
+	}
+
+	public void logWarning(String message) {
+		getLogger().warning(_logPrefix + message);
+	}
+	//endregion
 }

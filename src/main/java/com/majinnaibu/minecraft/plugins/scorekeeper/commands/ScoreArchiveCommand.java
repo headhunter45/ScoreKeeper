@@ -1,6 +1,8 @@
 package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -22,15 +24,7 @@ public class ScoreArchiveCommand implements CommandExecutor {
 			String label,
 			String[] split
 	) {
-		sender.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] archive command unimplemented ");
-		
-		if(sender instanceof Player){
-			Player player = (Player) sender;
-			int score = _plugin.getPlayerScore(player);
-			player.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] Your score is " + ChatColor.GREEN + score);
-			return true;
-		}else{
-			return false;
-		}
+		_plugin.sendMessage(sender, Component.text("archive command unimplemented"));
+		return true;
 	}
 }

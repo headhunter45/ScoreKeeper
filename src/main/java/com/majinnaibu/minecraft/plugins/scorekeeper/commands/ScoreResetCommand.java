@@ -1,6 +1,8 @@
 package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
-import org.bukkit.ChatColor;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -22,35 +24,20 @@ public class ScoreResetCommand implements CommandExecutor {
 			String label,
 			String[] split
 	) {
-		sender.sendMessage("[" + ChatColor.AQUA + "ScoreKeeper" + ChatColor.WHITE + "] archive command unimplemented ");
-	
 		boolean rcon = !(sender instanceof Player);
 		Player targetPlayer = null;
 		
-		if(split.length == 1){
+		if(split.length == 0){
 			if(rcon){
 				echoUsage(sender, rcon);
 				return true;
 			}else{
 				targetPlayer = (Player)sender;
-				try{
-					
-				}catch(NumberFormatException ex){
-					echoError(sender, rcon, "amount must be an integer");
-					return true;
-				}
 			}
-		}else if(split.length == 2){
+		}else if(split.length == 1){
 			targetPlayer = _plugin.getServer().getPlayerExact(split[0]);
 			if(targetPlayer == null){
 				echoError(sender, rcon, "Can't find a player with that name");
-				return true;
-			}
-			
-			try{
-				
-			}catch(NumberFormatException ex){
-				echoError(sender, rcon, "amount must be an integer");
 				return true;
 			}
 		}else{
@@ -58,19 +45,27 @@ public class ScoreResetCommand implements CommandExecutor {
 			return true;
 		}
 		
-		_plugin.resetPlayerScore(targetPlayer);
+		_plugin.resetScore(targetPlayer);
 		return true;
 	}
 	
 	private void echoError(CommandSender sender, boolean rcon, String string) {
-		sender.sendMessage("[" + ChatColor.RED + "ScoreKeeper" + ChatColor.WHITE + "] " + string);
+		_plugin.sendMessage(sender, Component.text(string).color(NamedTextColor.RED));
 	}
 
 	private void echoUsage(CommandSender sender, boolean rcon) {
 		if(rcon){
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": score-reset " + ChatColor.GREEN + "<playername>");
+			Component message = 
+				Component.text("Usage").color(NamedTextColor.DARK_PURPLE)
+				.append(Component.text(": score-reset ").color(NamedTextColor.WHITE))
+				.append(Component.text("<playerName>").color(NamedTextColor.GREEN));
+			_plugin.sendMessage(sender, message);
 		}else{
-			sender.sendMessage(ChatColor.DARK_PURPLE + "Usage" + ChatColor.WHITE + ": /score-reset " + ChatColor.YELLOW + "[playername]");
+			Component message = 
+				Component.text("Usage").color(NamedTextColor.DARK_PURPLE)
+				.append(Component.text(": /score-reset ").color(NamedTextColor.WHITE))
+				.append(Component.text("[playerName]").color(NamedTextColor.YELLOW));
+			_plugin.sendMessage(sender, message);
 		}
 	}
 }
