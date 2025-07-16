@@ -43,7 +43,8 @@ publishing {
 }
 
 release {
-    buildTasks.addAll(['spotlessCheck', 'build'])
+//    buildTasks.addAll(['spotlessCheck', 'build'])
+    buildTasks = ['spotlessCheck', 'build']
     failOnSnapshotDependencies = true
     ignoredSnapshotDependencies = [
         "io.papermc.paper:paper-api"
