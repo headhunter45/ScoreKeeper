@@ -1,15 +1,37 @@
 plugins {
+    id 'com.diffplug.spotless' version '6.22.0'
     id 'java-library'
     id 'maven-publish'
+    id 'net.researchgate.release' version '3.1.0'
 }
 
 group = 'com.majinnaibu.minecraft.plugins'
 version = '0.2.1-SNAPSHOT'
 description = "ScoreKeeper"
 
+tasks.withType(JavaCompile).configureEach {
+	options.encoding = 'UTF-8'
+    // options.compilerArgs << "-Xlint:deprecation"
+}
+
+tasks.withType(Javadoc).configureEach {
+	options.encoding = 'UTF-8'
+}
+
+dependencies {
+    compileOnly 'io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT'
+}
+
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+processResources {
+    inputs.property "version", project.version
+    filesMatching('plugin.yml') {
+        expand(project.properties)
     }
 }
 
@@ -21,27 +43,25 @@ publishing {
     }
 }
 
+release {
+    failOnSnapshotDependencies = true
+    revertOnFail = true
+    tagTemplate = '$version'
+    versionPropertyFile = 'gradle.properties'
+}
+
 repositories {        
      mavenCentral()
      maven { url = 'https://repo.papermc.io/repository/maven-public/' }
 }
 
-dependencies {
-    compileOnly 'io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT'
-}
-
-tasks.withType(JavaCompile).configureEach {
-	options.encoding = 'UTF-8'
-    // options.compilerArgs << "-Xlint:deprecation"
-}
-
-tasks.withType(Javadoc).configureEach {
-	options.encoding = 'UTF-8'
-}
-
-processResources {
-    inputs.property "version", project.version
-    filesMatching('plugin.yml') {
-        expand(project.properties)
-    }
+spotless {
+    java {
+        googleJavaFormat()
+        importOrder 'java', 'javax', 'com', 'net', 'org', ''
+        licenseHeaderFile 'config/license-header.txt'
+        target 'src/**/*.java'
+        removeUnusedImports()
+        toggleOffOn()
+   }
 }

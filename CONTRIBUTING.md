@@ -1,4 +1,5 @@
 # Contributing to ScoreKeeper
+**TODO:** Add info about the various gradle tasks.
 
 Thank you for your interest in contributing to the ScoreKeeper plugin! This guide will help you set up your development environment and follow best practices for working with the project.
 
@@ -42,4 +43,4 @@ To develop and test the ScoreKeeper plugin, you will need:
 ### 4. Notes
 - You can automate server startup and plugin deployment with bash scripts for faster testing.
 - For automated testing or CI, run the Paper server in a headless Linux environment (including WSL, Docker, or CI runners).
-- Always use the provided scripts and environment variables for consistent server management. 
+- Always use the provided scripts and environment variables for consistent server management.
