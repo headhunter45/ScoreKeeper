@@ -45,6 +45,9 @@ publishing {
 
 release {
     failOnSnapshotDependencies = true
+    ignoredSnapshotDependencies = [
+        "io.papermc.paper:paper-api"
+    ]
     revertOnFail = true
     tagTemplate = '$version'
     versionPropertyFile = 'gradle.properties'
