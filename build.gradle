@@ -6,7 +6,6 @@ plugins {
 }
 
 group = 'com.majinnaibu.minecraft.plugins'
-version = '0.2.1-SNAPSHOT'
 description = "ScoreKeeper"
 
 tasks.withType(JavaCompile).configureEach {
