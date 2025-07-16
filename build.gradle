@@ -49,7 +49,7 @@ release {
         "io.papermc.paper:paper-api"
     ]
     revertOnFail = true
-    tagTemplate = '$version'
+    tagTemplate = 'v$version'
     versionPropertyFile = 'gradle.properties'
 }
 
