@@ -1,0 +1,23 @@
+{
+  "id": "scorekeeper",
+  "title": "ScoreKeeper",
+  "description": "Paper Minecraft plugin for tracking and managing player scores.",
+  "docId": "ScoreKeeper",
+  "image": {
+    "url": "https://image.pollinations.ai/prompt/pixel%20art%20Minecraft%20server%20scoreboard%20with%20a%20glowing%20diamond%20and%20number%20counters%2C%20clean%20square%20game%20plugin%20thumbnail%2C%20no%20text",
+    "alt": "Pixel art scoreboard with a diamond for the ScoreKeeper Minecraft plugin",
+    "prompt": "Pixel art Minecraft server scoreboard with a glowing diamond and number counters, clean square game plugin thumbnail, no text",
+    "width": 1024,
+    "height": 1024,
+    "backgroundClassName": "bg-surface"
+  },
+  "url": "/projects/scorekeeper",
+  "tags": [],
+  "source": {
+    "type": "",
+    "url": ""
+  },
+  "feedback": {
+    "url": ""
+  }
+}
