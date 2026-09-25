@@ -1,4 +1,5 @@
 .gradle/
 build/
 target/
-bin
+.worktrees/
+bin/
