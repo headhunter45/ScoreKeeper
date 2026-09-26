@@ -12,7 +12,7 @@ if [[ -z "$MINECRAFT_SERVER_PATH" ]]; then
   exit 1
 fi
 
-PLUGIN_JAR=$(ls -t "$PROJECT_ROOT"/build/libs/*.jar 2>/dev/null | head -n1)
+PLUGIN_JAR=$(ls -t "$PROJECT_ROOT"/build/libs/*.jar 2>/dev/null | grep -v -- '-all\.jar$' | head -n1)
 if [[ ! -f "$PLUGIN_JAR" ]]; then
   echo "Error: No plugin jar found in $PROJECT_ROOT/build/libs. Build the plugin first."
   exit 1

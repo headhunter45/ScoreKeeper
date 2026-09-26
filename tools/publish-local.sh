@@ -41,4 +41,4 @@ ensure_java_25() {
 
 ensure_java_25
 cd "$PROJECT_ROOT"
-./gradlew build "$@"
+./gradlew publishToMavenLocal "$@"

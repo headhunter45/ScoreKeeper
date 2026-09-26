@@ -23,8 +23,22 @@ dependencies {
 
 java {
     toolchain {
-        languageVersion = JavaLanguageVersion.of(21)
+        // Paper 26.1+ requires Java 25.
+        languageVersion = JavaLanguageVersion.of(25)
     }
+}
+
+tasks.named('wrapper') {
+    gradleVersion = '9.8.0'
+    distributionType = Wrapper.DistributionType.BIN
+    distributionBase = Wrapper.PathBase.PROJECT
+    distributionPath = '.gradle/wrapper/dists'
+    archiveBase = Wrapper.PathBase.PROJECT
+    archivePath = '.gradle/wrapper/dists'
+}
+
+tasks.named('updateDaemonJvm') {
+    languageVersion = JavaLanguageVersion.of(25)
 }
 
 processResources {
@@ -61,7 +75,7 @@ repositories {
 
 spotless {
     java {
-        googleJavaFormat()
+        googleJavaFormat('1.27.0')
         importOrder 'java', 'javax', 'com', 'net', 'org', ''
         licenseHeaderFile 'config/license-header.txt'
         target 'src/**/*.java'
