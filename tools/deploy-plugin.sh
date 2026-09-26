@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 set -e
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# shellcheck source=setup-env.sh
+source "$SCRIPT_DIR/setup-env.sh"
+
 if [[ -z "$MINECRAFT_SERVER_PATH" ]]; then
   echo "Error: MINECRAFT_SERVER_PATH environment variable is not set."
   exit 1
 fi
-
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 PLUGIN_JAR=$(ls -t "$PROJECT_ROOT"/build/libs/*.jar 2>/dev/null | head -n1)
 if [[ ! -f "$PLUGIN_JAR" ]]; then

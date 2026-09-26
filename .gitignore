@@ -3,3 +3,6 @@ build/
 target/
 .worktrees/
 bin/
+/backups/
+/server/
+.env
