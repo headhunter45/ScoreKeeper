@@ -103,8 +103,10 @@ public class ScoreBucketCommand implements CommandExecutor {
   private void switchPlayerBucket(CommandSender sender, Player target, String bucketId) {
     try {
       _plugin.switchPlayerBucket(target, bucketId);
-      _plugin.sendMessage(
-          sender, Component.text(target.getName() + " is now tracking " + bucketId + "."));
+      if (sender != target) {
+        _plugin.sendMessage(
+            sender, Component.text(target.getName() + " is now tracking " + bucketId + "."));
+      }
     } catch (IllegalArgumentException ex) {
       sendError(sender, ex.getMessage());
     }

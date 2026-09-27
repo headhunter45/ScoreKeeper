@@ -13,6 +13,8 @@
 * `/score-bucket create <id> <singular> <plural> <initialValue> [admin|global|player|none]` - Creates a bucket (operators).
 * `/score-bucket <playerName|all> <bucketId>` - Switches a player or the server default (operators).
 
+When a player's active bucket changes, they are told the bucket name and their current score with its singular or plural unit.
+
 NOTES:
 * All commands will use the executing player in place of [playerName] if it is omitted.
 * Permissions support is coming AFTER I get archive to work.

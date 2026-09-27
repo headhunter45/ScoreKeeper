@@ -174,19 +174,33 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   }
 
   public void switchPlayerBucket(Player player, String bucketId) {
-    requireBucket(bucketId);
+    ScoreBucket bucket = requireBucket(bucketId);
     UUID playerId = player.getUniqueId();
+    String previousBucketId = getPlayerBucket(player);
     if (bucketId.equals(_defaultBucketId)) {
       _playerBuckets.remove(playerId);
     } else {
       _playerBuckets.put(playerId, bucketId);
     }
+    if (!previousBucketId.equals(bucketId)) {
+      sendBucketChangeMessage(player, bucket);
+    }
   }
 
   public void switchAllPlayers(String bucketId) {
     requireBucket(bucketId);
+    Map<UUID, String> previousBuckets = new LinkedHashMap<>();
+    for (Player player : getServer().getOnlinePlayers()) {
+      previousBuckets.put(player.getUniqueId(), getPlayerBucket(player));
+    }
     _defaultBucketId = bucketId;
     _playerBuckets.clear();
+    ScoreBucket bucket = requireBucket(bucketId);
+    for (Player player : getServer().getOnlinePlayers()) {
+      if (!bucketId.equals(previousBuckets.get(player.getUniqueId()))) {
+        sendBucketChangeMessage(player, bucket);
+      }
+    }
   }
 
   // endregion
@@ -202,6 +216,15 @@ public class ScoreKeeperPlugin extends JavaPlugin {
       throw new IllegalArgumentException("Unknown score bucket: " + bucketId);
     }
     return bucket;
+  }
+
+  private void sendBucketChangeMessage(Player player, ScoreBucket bucket) {
+    int score = getScore(player, bucket.getId());
+    String unit = score == 1 ? bucket.getSingular() : bucket.getPlural();
+    sendMessage(
+        player,
+        Component.text(
+            "You are now tracking " + bucket.getId() + ". You have " + score + " " + unit + "."));
   }
 
   private void loadScores() {
