@@ -27,6 +27,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.logging.Level;
 
@@ -100,14 +101,14 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 
   @Override
   public void onEnable() {
-    getCommand("score-get").setExecutor(new ScoreGetCommand(this));
-    getCommand("score-add").setExecutor(new ScoreAddCommand(this));
-    getCommand("score-subtract").setExecutor(new ScoreSubtractCommand(this));
-    getCommand("score-reset").setExecutor(new ScoreResetCommand(this));
-    getCommand("score-archive").setExecutor(new ScoreArchiveCommand(this));
-    getCommand("score-archive-list").setExecutor(new ScoreArchiveListCommand(this));
-    getCommand("score-bucket").setExecutor(new ScoreBucketCommand(this));
-    getCommand("score-run").setExecutor(new ScoreRunCommand(this));
+    Objects.requireNonNull(getCommand("score-get")).setExecutor(new ScoreGetCommand(this));
+    Objects.requireNonNull(getCommand("score-add")).setExecutor(new ScoreAddCommand(this));
+    Objects.requireNonNull(getCommand("score-subtract")).setExecutor(new ScoreSubtractCommand(this));
+    Objects.requireNonNull(getCommand("score-reset")).setExecutor(new ScoreResetCommand(this));
+    Objects.requireNonNull(getCommand("score-archive")).setExecutor(new ScoreArchiveCommand(this));
+    Objects.requireNonNull(getCommand("score-archive-list")).setExecutor(new ScoreArchiveListCommand(this));
+    Objects.requireNonNull(getCommand("score-bucket")).setExecutor(new ScoreBucketCommand(this));
+    Objects.requireNonNull(getCommand("score-run")).setExecutor(new ScoreRunCommand(this));
 
     _buckets.put("points", new ScoreBucket("points", "point", "points", 0));
     _bucketScores.put("points", new LinkedHashMap<>());
@@ -249,13 +250,13 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     requireBucket(bucketId);
     Map<UUID, String> previousBuckets = new LinkedHashMap<>();
     for (Player player : getServer().getOnlinePlayers()) {
-      previousBuckets.put(player.getUniqueId(), getPlayerBucket(player));
+      previousBuckets.put(Objects.requireNonNull(player).getUniqueId(), getPlayerBucket(player));
     }
     _defaultBucketId = bucketId;
     _playerBuckets.clear();
     ScoreBucket bucket = requireBucket(bucketId);
     for (Player player : getServer().getOnlinePlayers()) {
-      if (!bucketId.equals(previousBuckets.get(player.getUniqueId()))) {
+      if (!bucketId.equals(previousBuckets.get(Objects.requireNonNull(player).getUniqueId()))) {
         sendBucketChangeMessage(player, bucket);
       }
     }
@@ -307,7 +308,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 
   // region Utiilty Methods
   public void sendMessage(CommandSender reciever, Component message) {
-    reciever.sendMessage(_messagePrefix.append(message));
+    reciever.sendMessage(_messagePrefix.append(Objects.requireNonNull(message)));
   }
 
   private ScoreBucket requireBucket(String bucketId) {
@@ -404,13 +405,13 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   private void reportHighScoreRunChange(
       Player player, ScoreBucket bucket, HighScoreRun run, int score) {
     String message = scoreMessage(player.getName(), bucket, score);
-    sendMessage(player, Component.text(message));
+    sendMessage(player, Component.text(Objects.requireNonNull(message)));
     List<ScoreEntry> standings = getRankedScores(bucket.getId());
     for (int place = 0; place < Math.min(run.topN, standings.size()); place++) {
       if (standings.get(place).playerId.equals(player.getUniqueId())) {
         for (Player recipient : getServer().getOnlinePlayers()) {
           if (recipient != player) {
-            sendMessage(recipient, Component.text(message));
+            sendMessage(recipient, Component.text(Objects.requireNonNull(message)));
           }
         }
         return;
@@ -455,7 +456,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
       ScoreEntry personalEntry = null;
       int personalPlace = -1;
       for (int place = 0; place < standings.size(); place++) {
-        if (standings.get(place).playerId.equals(player.getUniqueId())) {
+        if (standings.get(place).playerId.equals(Objects.requireNonNull(player).getUniqueId())) {
           personalEntry = standings.get(place);
           personalPlace = place + 1;
           break;
@@ -700,7 +701,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     }
 
     String text = scoreMessage(player.getName(), bucket, score);
-    Component message = Component.text(text);
+    Component message = Component.text(Objects.requireNonNull(text));
     if (reporting == ScoreReporting.PLAYER) {
       sendMessage(player, message);
     } else if (reporting == ScoreReporting.GLOBAL) {
@@ -710,7 +711,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     } else if (reporting == ScoreReporting.ADMIN) {
       logInfo(text);
       for (Player recipient : getServer().getOnlinePlayers()) {
-        if (recipient.isOp() || recipient.hasPermission("scorekeeper.admin")) {
+        if (Objects.requireNonNull(recipient).isOp() || recipient.hasPermission("scorekeeper.admin")) {
           sendMessage(recipient, message);
         }
       }

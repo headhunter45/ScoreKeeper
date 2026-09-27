@@ -22,6 +22,8 @@ import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
+import java.util.Objects;
+
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -68,7 +70,7 @@ public class ScoreArchiveCommand implements CommandExecutor {
   }
 
   private void sendError(CommandSender sender, String message) {
-    _plugin.sendMessage(sender, Component.text(message).color(NamedTextColor.RED));
+    _plugin.sendMessage(sender, Component.text(Objects.requireNonNull(message)).color(NamedTextColor.RED));
   }
 
   private void sendUsage(CommandSender sender) {
