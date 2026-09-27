@@ -19,7 +19,12 @@ package com.majinnaibu.minecraft.plugins.scorekeeper;
 
 import java.io.File;
 import java.io.IOException;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -29,6 +34,7 @@ import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreArchiveCommand
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreBucketCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreGetCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreResetCommand;
+import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreRunCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreSubtractCommand;
 
 import net.kyori.adventure.text.Component;
@@ -44,6 +50,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   private final Map<String, ScoreBucket> _buckets = new LinkedHashMap<>();
   private final Map<String, Map<UUID, Integer>> _bucketScores = new LinkedHashMap<>();
   private final Map<UUID, String> _playerBuckets = new LinkedHashMap<>();
+  private final Map<String, HighScoreRun> _highScoreRuns = new LinkedHashMap<>();
   private String _defaultBucketId = "points";
   public final String _logPrefix = "[ScoreKeeper] ";
   public final Component _messagePrefix =
@@ -54,7 +61,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   @Override
   public void onDisable() {
     YamlConfiguration scores = new YamlConfiguration();
-    scores.set("version", 2);
+    scores.set("version", 3);
     scores.set("default-bucket", _defaultBucketId);
     for (ScoreBucket bucket : _buckets.values()) {
       String path = "buckets." + bucket.getId();
@@ -68,6 +75,17 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     }
     for (var entry : _playerBuckets.entrySet()) {
       scores.set("player-buckets." + entry.getKey(), entry.getValue());
+    }
+    for (HighScoreRun run : _highScoreRuns.values()) {
+      String path = "high-score-runs." + run.bucketId;
+      scores.set(path + ".top-n", run.topN);
+      scores.set(path + ".reset-scores", run.resetScores);
+      scores.set(path + ".lifetime", run.lifetime.name().toLowerCase(Locale.ROOT));
+      scores.set(path + ".target-score", run.targetScore);
+      scores.set(path + ".expires-at", run.expiresAtMillis);
+      for (var entry : run.previousScores.entrySet()) {
+        scores.set(path + ".previous-scores." + entry.getKey(), entry.getValue());
+      }
     }
     try {
       scores.save(new File(getDataFolder(), "scores.yml"));
@@ -84,10 +102,13 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     getCommand("score-reset").setExecutor(new ScoreResetCommand(this));
     getCommand("score-archive").setExecutor(new ScoreArchiveCommand(this));
     getCommand("score-bucket").setExecutor(new ScoreBucketCommand(this));
+    getCommand("score-run").setExecutor(new ScoreRunCommand(this));
 
     _buckets.put("points", new ScoreBucket("points", "point", "points", 0));
     _bucketScores.put("points", new LinkedHashMap<>());
     loadScores();
+    checkHighScoreRuns();
+    getServer().getScheduler().runTaskTimer(this, this::checkHighScoreRuns, 20L, 20L);
 
     logInfo(
         getPluginMeta().getName() + " version " + getPluginMeta().getVersion() + " is enabled.");
@@ -134,7 +155,15 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     int oldScore = getScore(player, bucketId);
     _bucketScores.get(bucketId).put(player.getUniqueId(), score);
     if (oldScore != score) {
-      reportScoreChange(player, bucket, score);
+      HighScoreRun run = _highScoreRuns.get(bucketId);
+      if (run == null) {
+        reportScoreChange(player, bucket, score);
+      } else {
+        reportHighScoreRunChange(player, bucket, run, score);
+        if (run.lifetime == HighScoreLifetime.TARGET_SCORE && score >= run.targetScore) {
+          finishHighScoreRun(bucketId);
+        }
+      }
     }
   }
 
@@ -203,6 +232,48 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     }
   }
 
+  public void startTargetScoreRun(String bucketId, int topN, boolean resetScores, int targetScore) {
+    ScoreBucket bucket = requireBucket(bucketId);
+    if (resetScores && targetScore <= bucket.getInitialValue()) {
+      throw new IllegalArgumentException("Target score must exceed the bucket's initial value");
+    }
+    startHighScoreRun(bucketId, topN, resetScores, HighScoreLifetime.TARGET_SCORE, targetScore, 0L);
+  }
+
+  public void startTimedScoreRun(
+      String bucketId, int topN, boolean resetScores, Duration duration) {
+    if (duration == null || duration.isNegative() || duration.isZero()) {
+      throw new IllegalArgumentException("Run duration must be positive");
+    }
+    long durationMillis;
+    long expiresAtMillis;
+    try {
+      durationMillis = duration.toMillis();
+      expiresAtMillis = Math.addExact(System.currentTimeMillis(), durationMillis);
+    } catch (ArithmeticException ex) {
+      throw new IllegalArgumentException("Run duration is too large", ex);
+    }
+    if (durationMillis <= 0) {
+      throw new IllegalArgumentException("Run duration must be at least one millisecond");
+    }
+    startHighScoreRun(bucketId, topN, resetScores, HighScoreLifetime.DURATION, 0, expiresAtMillis);
+  }
+
+  public void startUntilDisabledScoreRun(String bucketId, int topN, boolean resetScores) {
+    startHighScoreRun(bucketId, topN, resetScores, HighScoreLifetime.UNTIL_DISABLED, 0, 0L);
+  }
+
+  public void stopHighScoreRun(String bucketId) {
+    if (!_highScoreRuns.containsKey(bucketId)) {
+      throw new IllegalArgumentException("No high-score run is active for bucket " + bucketId);
+    }
+    finishHighScoreRun(bucketId);
+  }
+
+  public boolean hasActiveHighScoreRun(String bucketId) {
+    return _highScoreRuns.containsKey(bucketId);
+  }
+
   // endregion
 
   // region Utiilty Methods
@@ -225,6 +296,160 @@ public class ScoreKeeperPlugin extends JavaPlugin {
         player,
         Component.text(
             "You are now tracking " + bucket.getId() + ". You have " + score + " " + unit + "."));
+  }
+
+  private void startHighScoreRun(
+      String bucketId,
+      int topN,
+      boolean resetScores,
+      HighScoreLifetime lifetime,
+      int targetScore,
+      long expiresAtMillis) {
+    ScoreBucket bucket = requireBucket(bucketId);
+    if (topN < 1) {
+      throw new IllegalArgumentException("Top N must be at least 1");
+    }
+    if (_highScoreRuns.containsKey(bucketId)) {
+      throw new IllegalArgumentException("A high-score run is already active for " + bucketId);
+    }
+
+    Map<UUID, Integer> bucketScores = _bucketScores.get(bucketId);
+    Map<UUID, Integer> previousScores = resetScores ? new LinkedHashMap<>(bucketScores) : Map.of();
+    if (resetScores) {
+      bucketScores.replaceAll((playerId, score) -> bucket.getInitialValue());
+    }
+    _highScoreRuns.put(
+        bucketId,
+        new HighScoreRun(
+            bucketId, topN, resetScores, lifetime, targetScore, expiresAtMillis, previousScores));
+    checkHighScoreRuns();
+  }
+
+  private void checkHighScoreRuns() {
+    long now = System.currentTimeMillis();
+    List<String> finishedRuns = new ArrayList<>();
+    for (HighScoreRun run : _highScoreRuns.values()) {
+      boolean expired = run.lifetime == HighScoreLifetime.DURATION && now >= run.expiresAtMillis;
+      boolean targetReached =
+          run.lifetime == HighScoreLifetime.TARGET_SCORE
+              && _bucketScores.get(run.bucketId).values().stream()
+                  .anyMatch(score -> score >= run.targetScore);
+      if (expired || targetReached) {
+        finishedRuns.add(run.bucketId);
+      }
+    }
+    for (String bucketId : finishedRuns) {
+      finishHighScoreRun(bucketId);
+    }
+  }
+
+  private void reportHighScoreRunChange(
+      Player player, ScoreBucket bucket, HighScoreRun run, int score) {
+    String message = scoreMessage(player.getName(), bucket, score);
+    sendMessage(player, Component.text(message));
+    List<ScoreEntry> standings = getRankedScores(bucket.getId());
+    for (int place = 0; place < Math.min(run.topN, standings.size()); place++) {
+      if (standings.get(place).playerId.equals(player.getUniqueId())) {
+        for (Player recipient : getServer().getOnlinePlayers()) {
+          if (recipient != player) {
+            sendMessage(recipient, Component.text(message));
+          }
+        }
+        return;
+      }
+    }
+  }
+
+  private void finishHighScoreRun(String bucketId) {
+    HighScoreRun run = _highScoreRuns.remove(bucketId);
+    if (run == null) {
+      return;
+    }
+
+    ScoreBucket bucket = requireBucket(bucketId);
+    List<ScoreEntry> standings = getRankedScores(bucketId);
+    StringBuilder table =
+        new StringBuilder("High-score run for ").append(bucketId).append(" finished.");
+    int places = Math.min(run.topN, standings.size());
+    if (places == 0) {
+      table.append("\nNo scores were recorded.");
+    }
+    for (int place = 0; place < places; place++) {
+      ScoreEntry entry = standings.get(place);
+      table
+          .append("\n")
+          .append(place + 1)
+          .append(". ")
+          .append(entry.playerName)
+          .append(" - ")
+          .append(entry.score)
+          .append(" ")
+          .append(scoreUnit(bucket, entry.score));
+    }
+
+    if (run.resetScores) {
+      Map<UUID, Integer> bucketScores = _bucketScores.get(bucketId);
+      bucketScores.clear();
+      bucketScores.putAll(run.previousScores);
+    }
+    logInfo(table.toString().replace('\n', ' '));
+    for (Player player : getServer().getOnlinePlayers()) {
+      ScoreEntry personalEntry = null;
+      int personalPlace = -1;
+      for (int place = 0; place < standings.size(); place++) {
+        if (standings.get(place).playerId.equals(player.getUniqueId())) {
+          personalEntry = standings.get(place);
+          personalPlace = place + 1;
+          break;
+        }
+      }
+      int personalScore = personalEntry == null ? bucket.getInitialValue() : personalEntry.score;
+      String personalResult =
+          personalPlace < 0
+              ? "Your place: unranked; score: "
+                  + personalScore
+                  + " "
+                  + scoreUnit(bucket, personalScore)
+              : "Your place: "
+                  + personalPlace
+                  + "; score: "
+                  + personalScore
+                  + " "
+                  + scoreUnit(bucket, personalScore);
+      sendMessage(player, Component.text(table + "\n" + personalResult));
+    }
+  }
+
+  private List<ScoreEntry> getRankedScores(String bucketId) {
+    List<ScoreEntry> standings = new ArrayList<>();
+    for (var entry : _bucketScores.get(bucketId).entrySet()) {
+      String playerName = getServer().getOfflinePlayer(entry.getKey()).getName();
+      if (playerName == null || playerName.isBlank()) {
+        playerName = entry.getKey().toString();
+      }
+      standings.add(new ScoreEntry(entry.getKey(), playerName, entry.getValue()));
+    }
+    standings.sort(
+        Comparator.comparingInt((ScoreEntry entry) -> entry.score)
+            .reversed()
+            .thenComparing(entry -> entry.playerName, String.CASE_INSENSITIVE_ORDER)
+            .thenComparing(entry -> entry.playerId.toString()));
+    return standings;
+  }
+
+  private String scoreMessage(String playerName, ScoreBucket bucket, int score) {
+    return playerName
+        + "'s "
+        + bucket.getId()
+        + " score is now "
+        + score
+        + " "
+        + scoreUnit(bucket, score)
+        + ".";
+  }
+
+  private String scoreUnit(ScoreBucket bucket, int score) {
+    return score == 1 ? bucket.getSingular() : bucket.getPlural();
   }
 
   private void loadScores() {
@@ -286,6 +511,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
         }
       }
     }
+    loadHighScoreRuns(scores);
   }
 
   private void loadLegacyScores(YamlConfiguration scores) {
@@ -311,15 +537,55 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     }
   }
 
+  private void loadHighScoreRuns(YamlConfiguration scores) {
+    ConfigurationSection runs = scores.getConfigurationSection("high-score-runs");
+    if (runs == null) {
+      return;
+    }
+    for (String bucketId : runs.getKeys(false)) {
+      if (!_buckets.containsKey(bucketId)) {
+        logWarning("Ignoring high-score run for unknown bucket " + bucketId + ".");
+        continue;
+      }
+      try {
+        String path = "high-score-runs." + bucketId;
+        int topN = scores.getInt(path + ".top-n");
+        if (topN < 1) {
+          throw new IllegalArgumentException("Top N must be at least 1");
+        }
+        HighScoreLifetime lifetime =
+            HighScoreLifetime.valueOf(
+                scores.getString(path + ".lifetime", "until_disabled").toUpperCase(Locale.ROOT));
+        Map<UUID, Integer> previousScores = new LinkedHashMap<>();
+        ConfigurationSection savedScores =
+            scores.getConfigurationSection(path + ".previous-scores");
+        if (savedScores != null) {
+          loadPlayerScores(savedScores, previousScores);
+        }
+        _highScoreRuns.put(
+            bucketId,
+            new HighScoreRun(
+                bucketId,
+                topN,
+                scores.getBoolean(path + ".reset-scores"),
+                lifetime,
+                scores.getInt(path + ".target-score"),
+                scores.getLong(path + ".expires-at"),
+                previousScores));
+      } catch (IllegalArgumentException ex) {
+        logWarning(
+            "Ignoring invalid high-score run for bucket " + bucketId + ": " + ex.getMessage());
+      }
+    }
+  }
+
   private void reportScoreChange(Player player, ScoreBucket bucket, int score) {
     ScoreReporting reporting = bucket.getReporting();
     if (reporting == ScoreReporting.NONE) {
       return;
     }
 
-    String unit = score == 1 ? bucket.getSingular() : bucket.getPlural();
-    String text =
-        player.getName() + "'s " + bucket.getId() + " score is now " + score + " " + unit + ".";
+    String text = scoreMessage(player.getName(), bucket, score);
     Component message = Component.text(text);
     if (reporting == ScoreReporting.PLAYER) {
       sendMessage(player, message);
@@ -336,6 +602,41 @@ public class ScoreKeeperPlugin extends JavaPlugin {
       }
     }
   }
+
+  private enum HighScoreLifetime {
+    TARGET_SCORE,
+    DURATION,
+    UNTIL_DISABLED
+  }
+
+  private static final class HighScoreRun {
+    private final String bucketId;
+    private final int topN;
+    private final boolean resetScores;
+    private final HighScoreLifetime lifetime;
+    private final int targetScore;
+    private final long expiresAtMillis;
+    private final Map<UUID, Integer> previousScores;
+
+    private HighScoreRun(
+        String bucketId,
+        int topN,
+        boolean resetScores,
+        HighScoreLifetime lifetime,
+        int targetScore,
+        long expiresAtMillis,
+        Map<UUID, Integer> previousScores) {
+      this.bucketId = bucketId;
+      this.topN = topN;
+      this.resetScores = resetScores;
+      this.lifetime = lifetime;
+      this.targetScore = targetScore;
+      this.expiresAtMillis = expiresAtMillis;
+      this.previousScores = new LinkedHashMap<>(previousScores);
+    }
+  }
+
+  private record ScoreEntry(UUID playerId, String playerName, int score) {}
 
   // endregion
 

@@ -21,6 +21,9 @@ commands:
     score-bucket:
         description: Selects or manages score buckets.
         usage: /score-bucket [bucketId] | create <id> <singular> <plural> <initialValue> [admin|global|player|none] | <player|all> <bucketId>
+    score-run:
+        description: Starts or stops a high-score run.
+        usage: /score-run start <bucket> <topN> <reset:true|false> <target <score>|duration <time>|until-disabled> | /score-run stop <bucket>
 permissions:
     scorekeeper.admin:
         description: Allows managing score buckets.
