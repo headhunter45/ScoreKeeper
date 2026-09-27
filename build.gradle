@@ -2,11 +2,16 @@ plugins {
     id 'com.diffplug.spotless' version '6.22.0'
     id 'java-library'
     id 'maven-publish'
-    id 'net.researchgate.release' version '3.1.0'
+    id 'org.danilopianini.git-sensitive-semantic-versioning' version '7.0.24'
 }
 
 group = 'com.majinnaibu.minecraft.plugins'
 description = "ScoreKeeper"
+
+gitSemVer {
+    minimumVersion.set('0.2.1')
+    versionPrefix.set('v')
+}
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'
@@ -41,10 +46,12 @@ tasks.named('updateDaemonJvm') {
     languageVersion = JavaLanguageVersion.of(25)
 }
 
+def pluginVersion = project.version.toString()
+
 processResources {
-    inputs.property "version", project.version
+    inputs.property "version", pluginVersion
     filesMatching('plugin.yml') {
-        expand(project.properties)
+        expand(version: pluginVersion)
     }
 }
 
@@ -54,18 +61,6 @@ publishing {
             from components.java
         }
     }
-}
-
-release {
-//    buildTasks.addAll(['spotlessCheck', 'build'])
-    buildTasks = ['spotlessCheck', 'build']
-    failOnSnapshotDependencies = true
-    ignoredSnapshotDependencies = [
-        "io.papermc.paper:paper-api"
-    ]
-    revertOnFail = true
-    tagTemplate = 'v$version'
-    versionPropertyFile = 'gradle.properties'
 }
 
 repositories {        

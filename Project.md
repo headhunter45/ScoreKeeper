@@ -27,9 +27,9 @@ and scoring formulas are all **future scope**. See §4 for the gap between *what
 | Runtime target | Paper 1.21.7 (Bukkit + Adventure APIs) |
 | Build tool | Gradle 8.14.3 (`gradlew`) |
 | Linting | Spotless (`googleJavaFormat()` + license header from `config/license-header.txt`) |
-| Release | `net.researchgate.release` plugin; tags `v$version`; rejects snapshot deps except paper-api |
+| Versioning | `org.danilopianini.git-sensitive-semantic-versioning`; minimum version `0.2.1`; reads `vX.Y.Z` tags |
 | External deps | **None at runtime.** `paper-api:1.21.7-R0.1-SNAPSHOT` is `compileOnly` only. |
-| CI/release entry point | `./gradlew spotlessCheck build` then `./gradlew release` |
+| CI/release entry point | Run `./gradlew spotlessCheck build`, tag the release commit (for example, `git tag -a v0.2.2 -m "Release v0.2.2"`), then rebuild to produce the stable release artifact |
 
 ### Build quickly
 
