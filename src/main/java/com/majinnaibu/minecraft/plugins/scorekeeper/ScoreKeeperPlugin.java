@@ -103,10 +103,12 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   public void onEnable() {
     Objects.requireNonNull(getCommand("score-get")).setExecutor(new ScoreGetCommand(this));
     Objects.requireNonNull(getCommand("score-add")).setExecutor(new ScoreAddCommand(this));
-    Objects.requireNonNull(getCommand("score-subtract")).setExecutor(new ScoreSubtractCommand(this));
+    Objects.requireNonNull(getCommand("score-subtract"))
+        .setExecutor(new ScoreSubtractCommand(this));
     Objects.requireNonNull(getCommand("score-reset")).setExecutor(new ScoreResetCommand(this));
     Objects.requireNonNull(getCommand("score-archive")).setExecutor(new ScoreArchiveCommand(this));
-    Objects.requireNonNull(getCommand("score-archive-list")).setExecutor(new ScoreArchiveListCommand(this));
+    Objects.requireNonNull(getCommand("score-archive-list"))
+        .setExecutor(new ScoreArchiveListCommand(this));
     Objects.requireNonNull(getCommand("score-bucket")).setExecutor(new ScoreBucketCommand(this));
     Objects.requireNonNull(getCommand("score-run")).setExecutor(new ScoreRunCommand(this));
 
@@ -711,7 +713,8 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     } else if (reporting == ScoreReporting.ADMIN) {
       logInfo(text);
       for (Player recipient : getServer().getOnlinePlayers()) {
-        if (Objects.requireNonNull(recipient).isOp() || recipient.hasPermission("scorekeeper.admin")) {
+        if (Objects.requireNonNull(recipient).isOp()
+            || recipient.hasPermission("scorekeeper.admin")) {
           sendMessage(recipient, message);
         }
       }

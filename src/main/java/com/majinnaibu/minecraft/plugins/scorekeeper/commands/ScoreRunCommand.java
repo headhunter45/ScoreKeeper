@@ -110,7 +110,8 @@ public class ScoreRunCommand implements CommandExecutor {
   }
 
   private void sendError(CommandSender sender, String message) {
-    _plugin.sendMessage(sender, Component.text(Objects.requireNonNull(message)).color(NamedTextColor.RED));
+    _plugin.sendMessage(
+        sender, Component.text(Objects.requireNonNull(message)).color(NamedTextColor.RED));
   }
 
   private void sendUsage(CommandSender sender) {

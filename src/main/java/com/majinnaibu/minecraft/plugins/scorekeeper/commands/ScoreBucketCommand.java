@@ -17,14 +17,14 @@ along with ScoreKeeper. If not, see <https://www.gnu.org/licenses/agpl-3.0.txt>.
 
 package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
+import java.util.Objects;
+
 import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreBucket;
 import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin;
 import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreReporting;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
-
-import java.util.Objects;
 
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
@@ -123,7 +123,8 @@ public class ScoreBucketCommand implements CommandExecutor {
   }
 
   private void sendError(CommandSender sender, String message) {
-    _plugin.sendMessage(sender, Component.text(Objects.requireNonNull(message)).color(NamedTextColor.RED));
+    _plugin.sendMessage(
+        sender, Component.text(Objects.requireNonNull(message)).color(NamedTextColor.RED));
   }
 
   private void sendUsage(CommandSender sender) {
