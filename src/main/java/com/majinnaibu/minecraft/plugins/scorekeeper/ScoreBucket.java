@@ -22,8 +22,14 @@ public final class ScoreBucket {
   private final String _singular;
   private final String _plural;
   private final int _initialValue;
+  private final ScoreReporting _reporting;
 
   public ScoreBucket(String id, String singular, String plural, int initialValue) {
+    this(id, singular, plural, initialValue, ScoreReporting.NONE);
+  }
+
+  public ScoreBucket(
+      String id, String singular, String plural, int initialValue, ScoreReporting reporting) {
     if (id == null || !id.matches("[A-Za-z0-9_-]+")) {
       throw new IllegalArgumentException("Bucket ID must contain only letters, numbers, _ or -");
     }
@@ -33,10 +39,14 @@ public final class ScoreBucket {
     if (plural == null || plural.isBlank()) {
       throw new IllegalArgumentException("Bucket plural label cannot be blank");
     }
+    if (reporting == null) {
+      throw new IllegalArgumentException("Bucket reporting policy cannot be null");
+    }
     _id = id;
     _singular = singular;
     _plural = plural;
     _initialValue = initialValue;
+    _reporting = reporting;
   }
 
   public String getId() {
@@ -53,5 +63,9 @@ public final class ScoreBucket {
 
   public int getInitialValue() {
     return _initialValue;
+  }
+
+  public ScoreReporting getReporting() {
+    return _reporting;
   }
 }

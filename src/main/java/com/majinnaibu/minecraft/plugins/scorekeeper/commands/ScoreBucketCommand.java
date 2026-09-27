@@ -19,6 +19,7 @@ package com.majinnaibu.minecraft.plugins.scorekeeper.commands;
 
 import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreBucket;
 import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin;
+import com.majinnaibu.minecraft.plugins.scorekeeper.ScoreReporting;
 
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -51,12 +52,14 @@ public class ScoreBucketCommand implements CommandExecutor {
       return true;
     }
 
-    if (args.length == 5 && args[0].equalsIgnoreCase("create")) {
+    if ((args.length == 5 || args.length == 6) && args[0].equalsIgnoreCase("create")) {
       if (!requireAdmin(sender)) {
         return true;
       }
       try {
-        _plugin.createBucket(args[1], args[2], args[3], Integer.parseInt(args[4]));
+        ScoreReporting reporting =
+            args.length == 6 ? ScoreReporting.fromString(args[5]) : ScoreReporting.NONE;
+        _plugin.createBucket(args[1], args[2], args[3], Integer.parseInt(args[4]), reporting);
         _plugin.sendMessage(sender, Component.text("Created score bucket " + args[1] + "."));
       } catch (IllegalArgumentException ex) {
         sendError(sender, ex.getMessage());

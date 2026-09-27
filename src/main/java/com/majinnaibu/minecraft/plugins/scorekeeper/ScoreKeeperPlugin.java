@@ -61,6 +61,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
       scores.set(path + ".singular", bucket.getSingular());
       scores.set(path + ".plural", bucket.getPlural());
       scores.set(path + ".initial-value", bucket.getInitialValue());
+      scores.set(path + ".reporting", bucket.getReporting().name().toLowerCase());
       for (var entry : _bucketScores.get(bucket.getId()).entrySet()) {
         scores.set(path + ".scores." + entry.getKey(), entry.getValue());
       }
@@ -129,8 +130,12 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   }
 
   public void setScore(Player player, String bucketId, int score) {
-    requireBucket(bucketId);
+    ScoreBucket bucket = requireBucket(bucketId);
+    int oldScore = getScore(player, bucketId);
     _bucketScores.get(bucketId).put(player.getUniqueId(), score);
+    if (oldScore != score) {
+      reportScoreChange(player, bucket, score);
+    }
   }
 
   public void subtractScore(Player player, int amount) {
@@ -142,7 +147,12 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   }
 
   public ScoreBucket createBucket(String id, String singular, String plural, int initialValue) {
-    ScoreBucket bucket = new ScoreBucket(id, singular, plural, initialValue);
+    return createBucket(id, singular, plural, initialValue, ScoreReporting.NONE);
+  }
+
+  public ScoreBucket createBucket(
+      String id, String singular, String plural, int initialValue, ScoreReporting reporting) {
+    ScoreBucket bucket = new ScoreBucket(id, singular, plural, initialValue, reporting);
     if (_buckets.containsKey(id)) {
       throw new IllegalArgumentException("A score bucket with ID " + id + " already exists");
     }
@@ -211,11 +221,14 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     _bucketScores.clear();
     for (String id : bucketSection.getKeys(false)) {
       try {
+        ScoreReporting reporting =
+            parseReporting(bucketSection.getString(id + ".reporting", "none"), id);
         createBucket(
             id,
             bucketSection.getString(id + ".singular", id),
             bucketSection.getString(id + ".plural", id),
-            bucketSection.getInt(id + ".initial-value"));
+            bucketSection.getInt(id + ".initial-value"),
+            reporting);
       } catch (IllegalArgumentException ex) {
         logWarning("Ignoring invalid score bucket " + id + ": " + ex.getMessage());
       }
@@ -262,6 +275,41 @@ public class ScoreKeeperPlugin extends JavaPlugin {
         target.put(UUID.fromString(key), scores.getInt(key));
       } catch (IllegalArgumentException ex) {
         logWarning("Ignoring score with invalid player UUID: " + key);
+      }
+    }
+  }
+
+  private ScoreReporting parseReporting(String value, String bucketId) {
+    try {
+      return ScoreReporting.fromString(value);
+    } catch (IllegalArgumentException ex) {
+      logWarning("Ignoring invalid reporting policy for bucket " + bucketId + "; using none.");
+      return ScoreReporting.NONE;
+    }
+  }
+
+  private void reportScoreChange(Player player, ScoreBucket bucket, int score) {
+    ScoreReporting reporting = bucket.getReporting();
+    if (reporting == ScoreReporting.NONE) {
+      return;
+    }
+
+    String unit = score == 1 ? bucket.getSingular() : bucket.getPlural();
+    String text =
+        player.getName() + "'s " + bucket.getId() + " score is now " + score + " " + unit + ".";
+    Component message = Component.text(text);
+    if (reporting == ScoreReporting.PLAYER) {
+      sendMessage(player, message);
+    } else if (reporting == ScoreReporting.GLOBAL) {
+      for (Player recipient : getServer().getOnlinePlayers()) {
+        sendMessage(recipient, message);
+      }
+    } else if (reporting == ScoreReporting.ADMIN) {
+      logInfo(text);
+      for (Player recipient : getServer().getOnlinePlayers()) {
+        if (recipient.isOp() || recipient.hasPermission("scorekeeper.admin")) {
+          sendMessage(recipient, message);
+        }
       }
     }
   }

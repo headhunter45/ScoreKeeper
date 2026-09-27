@@ -20,7 +20,7 @@ commands:
         usage: /score-archive [playername]
     score-bucket:
         description: Selects or manages score buckets.
-        usage: /score-bucket [bucketId] | create <id> <singular> <plural> <initialValue> | <player|all> <bucketId>
+        usage: /score-bucket [bucketId] | create <id> <singular> <plural> <initialValue> [admin|global|player|none] | <player|all> <bucketId>
 permissions:
     scorekeeper.admin:
         description: Allows managing score buckets.
