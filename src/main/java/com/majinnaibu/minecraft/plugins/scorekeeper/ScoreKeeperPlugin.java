@@ -17,6 +17,8 @@ along with ScoreKeeper. If not, see <https://www.gnu.org/licenses/agpl-3.0.txt>.
 
 package com.majinnaibu.minecraft.plugins.scorekeeper;
 
+import java.io.File;
+import java.io.IOException;
 import java.util.HashMap;
 import java.util.UUID;
 import java.util.logging.Level;
@@ -31,6 +33,7 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
@@ -44,8 +47,15 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 
   @Override
   public void onDisable() {
-    // TODO: save score data to file
-    logWarning("Unable to save scores to file. This feature is not implemented yet.");
+    YamlConfiguration scores = new YamlConfiguration();
+    for (var entry : _playerScores.entrySet()) {
+      scores.set(entry.getKey().toString(), entry.getValue());
+    }
+    try {
+      scores.save(new File(getDataFolder(), "scores.yml"));
+    } catch (IOException ex) {
+      logError(ex);
+    }
   }
 
   @Override
@@ -56,8 +66,17 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     getCommand("score-reset").setExecutor(new ScoreResetCommand(this));
     getCommand("score-archive").setExecutor(new ScoreArchiveCommand(this));
 
-    // TODO: load score data from file
-    logWarning("Unable to load scores from file. This feature is not " + "implemented yet.");
+    File scoreFile = new File(getDataFolder(), "scores.yml");
+    if (scoreFile.isFile()) {
+      YamlConfiguration scores = YamlConfiguration.loadConfiguration(scoreFile);
+      for (String key : scores.getKeys(false)) {
+        try {
+          _playerScores.put(UUID.fromString(key), scores.getInt(key));
+        } catch (IllegalArgumentException ex) {
+          logWarning("Ignoring score with invalid player UUID: " + key);
+        }
+      }
+    }
 
     logInfo(
         getPluginMeta().getName() + " version " + getPluginMeta().getVersion() + " is enabled.");

@@ -20,7 +20,7 @@
 
 |  ID   |  Status  | Title |
 |:-----:|:--------:|:------|
-| SK-01 |  Ready   | Save scores between server launches. |
+| SK-01 |  Done    | Save scores between server launches. |
 | SK-02 |  Ready   | Allow tracking scores by bucket. An admin or other plugin should be able to create types of scores with named other than points. { id: "Bread", singular: "loaf", plural: "loaves", initialValue: 0 } Each player's score will be tracked in a bucket by id. Players may be all switched to a bucket or individually switched. |\
 | SK-03 |  Ready   | Add optional score reporting to buckets with these four values. { id: "Bread", singular: "loaf", plural: "loaves", initialValue: 0, reporting:"admin|global|player|none" } admin means ops/admin only, global means everyone on the server, player means only tell the player, and none means don't report changes.
 | SK-04 |  Ready   | Tell a player when their bucket changes. Something like "You are now tracking ${id}. You have ${score} ${plural or singular depending in score}." |
