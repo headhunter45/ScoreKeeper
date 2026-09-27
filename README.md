@@ -20,4 +20,4 @@ NOTES:
 See [CONTRIBUTING.md](CONTRIBUTING.md) for development environment setup instructions.
 
 Tooling note:
-* Gradle is configured with Java Toolchains and will automatically download a Java 21 JDK when needed during builds.
+* Gradle is configured with Java Toolchains and will automatically download an appropriate JDK when needed during builds.
