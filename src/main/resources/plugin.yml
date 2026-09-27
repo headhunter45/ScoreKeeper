@@ -18,6 +18,9 @@ commands:
     score-archive:
         description: Archives and resets the player's score 
         usage: /score-archive [playername]
+    score-archive-list:
+        description: Lists saved score archives or displays one archive.
+        usage: /score-archive-list [archiveId]
     score-bucket:
         description: Selects or manages score buckets.
         usage: /score-bucket [bucketId] | create <id> <singular> <plural> <initialValue> [admin|global|player|none] | <player|all> <bucketId>

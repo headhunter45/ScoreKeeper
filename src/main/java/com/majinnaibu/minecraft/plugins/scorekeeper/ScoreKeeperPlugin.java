@@ -21,6 +21,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -31,6 +32,7 @@ import java.util.logging.Level;
 
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreAddCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreArchiveCommand;
+import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreArchiveListCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreBucketCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreGetCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreResetCommand;
@@ -51,6 +53,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   private final Map<String, Map<UUID, Integer>> _bucketScores = new LinkedHashMap<>();
   private final Map<UUID, String> _playerBuckets = new LinkedHashMap<>();
   private final Map<String, HighScoreRun> _highScoreRuns = new LinkedHashMap<>();
+  private final Map<String, ScoreArchive> _scoreArchives = new LinkedHashMap<>();
   private String _defaultBucketId = "points";
   public final String _logPrefix = "[ScoreKeeper] ";
   public final Component _messagePrefix =
@@ -92,6 +95,7 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     } catch (IOException ex) {
       logError(ex);
     }
+    saveArchives();
   }
 
   @Override
@@ -101,12 +105,14 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     getCommand("score-subtract").setExecutor(new ScoreSubtractCommand(this));
     getCommand("score-reset").setExecutor(new ScoreResetCommand(this));
     getCommand("score-archive").setExecutor(new ScoreArchiveCommand(this));
+    getCommand("score-archive-list").setExecutor(new ScoreArchiveListCommand(this));
     getCommand("score-bucket").setExecutor(new ScoreBucketCommand(this));
     getCommand("score-run").setExecutor(new ScoreRunCommand(this));
 
     _buckets.put("points", new ScoreBucket("points", "point", "points", 0));
     _bucketScores.put("points", new LinkedHashMap<>());
     loadScores();
+    loadArchives();
     checkHighScoreRuns();
     getServer().getScheduler().runTaskTimer(this, this::checkHighScoreRuns, 20L, 20L);
 
@@ -124,7 +130,30 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   }
 
   public void archiveScore(Player player) {
-    logWarning("Unable to archive score for " + player.getName() + ".");
+    archivePlayerScore(player);
+  }
+
+  public String archivePlayerScore(Player player) {
+    String bucketId = getPlayerBucket(player);
+    return createScoreArchive(
+        "player " + player.getName() + " in " + bucketId, List.of(bucketId), player);
+  }
+
+  public String archiveBucketScores(String bucketId) {
+    requireBucket(bucketId);
+    return createScoreArchive("bucket " + bucketId, List.of(bucketId), null);
+  }
+
+  public String archiveAllScores() {
+    return createScoreArchive("all buckets", new ArrayList<>(_buckets.keySet()), null);
+  }
+
+  public List<ScoreArchive> getScoreArchives() {
+    return List.copyOf(_scoreArchives.values());
+  }
+
+  public ScoreArchive getScoreArchive(String archiveId) {
+    return _scoreArchives.get(archiveId);
   }
 
   public int getScore(Player player) {
@@ -296,6 +325,35 @@ public class ScoreKeeperPlugin extends JavaPlugin {
         player,
         Component.text(
             "You are now tracking " + bucket.getId() + ". You have " + score + " " + unit + "."));
+  }
+
+  private String createScoreArchive(String scope, List<String> bucketIds, Player player) {
+    for (String bucketId : bucketIds) {
+      if (_highScoreRuns.containsKey(bucketId)) {
+        throw new IllegalArgumentException(
+            "Stop the active high-score run for " + bucketId + " before archiving it");
+      }
+    }
+
+    Map<String, Map<UUID, Integer>> archivedScores = new LinkedHashMap<>();
+    UUID playerId = player == null ? null : player.getUniqueId();
+    for (String bucketId : bucketIds) {
+      ScoreBucket bucket = requireBucket(bucketId);
+      Map<UUID, Integer> bucketScores = _bucketScores.get(bucketId);
+      if (playerId == null) {
+        archivedScores.put(bucketId, new LinkedHashMap<>(bucketScores));
+        bucketScores.replaceAll((uuid, score) -> bucket.getInitialValue());
+      } else {
+        int score = getScore(player, bucketId);
+        archivedScores.put(bucketId, Map.of(playerId, score));
+        bucketScores.put(playerId, bucket.getInitialValue());
+      }
+    }
+
+    String archiveId = UUID.randomUUID().toString();
+    _scoreArchives.put(
+        archiveId, new ScoreArchive(archiveId, scope, System.currentTimeMillis(), archivedScores));
+    return archiveId;
   }
 
   private void startHighScoreRun(
@@ -514,6 +572,62 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     loadHighScoreRuns(scores);
   }
 
+  private void loadArchives() {
+    File archiveFile = new File(getDataFolder(), "archives.yml");
+    if (!archiveFile.isFile()) {
+      return;
+    }
+    YamlConfiguration archives = YamlConfiguration.loadConfiguration(archiveFile);
+    ConfigurationSection archiveSection = archives.getConfigurationSection("archives");
+    if (archiveSection == null) {
+      return;
+    }
+    for (String archiveId : archiveSection.getKeys(false)) {
+      String path = "archives." + archiveId;
+      Map<String, Map<UUID, Integer>> bucketScores = new LinkedHashMap<>();
+      ConfigurationSection buckets = archives.getConfigurationSection(path + ".buckets");
+      if (buckets != null) {
+        for (String bucketId : buckets.getKeys(false)) {
+          Map<UUID, Integer> playerScores = new LinkedHashMap<>();
+          ConfigurationSection savedScores =
+              archives.getConfigurationSection(path + ".buckets." + bucketId + ".scores");
+          if (savedScores != null) {
+            loadPlayerScores(savedScores, playerScores);
+          }
+          bucketScores.put(bucketId, playerScores);
+        }
+      }
+      _scoreArchives.put(
+          archiveId,
+          new ScoreArchive(
+              archiveId,
+              archives.getString(path + ".scope", "unknown"),
+              archives.getLong(path + ".created-at"),
+              bucketScores));
+    }
+  }
+
+  private void saveArchives() {
+    YamlConfiguration archives = new YamlConfiguration();
+    for (ScoreArchive archive : _scoreArchives.values()) {
+      String path = "archives." + archive.getId();
+      archives.set(path + ".scope", archive.getScope());
+      archives.set(path + ".created-at", archive.getCreatedAtMillis());
+      for (var bucketEntry : archive.getBucketScores().entrySet()) {
+        for (var scoreEntry : bucketEntry.getValue().entrySet()) {
+          archives.set(
+              path + ".buckets." + bucketEntry.getKey() + ".scores." + scoreEntry.getKey(),
+              scoreEntry.getValue());
+        }
+      }
+    }
+    try {
+      archives.save(new File(getDataFolder(), "archives.yml"));
+    } catch (IOException ex) {
+      logError(ex);
+    }
+  }
+
   private void loadLegacyScores(YamlConfiguration scores) {
     loadPlayerScores(scores, _bucketScores.get("points"));
   }
@@ -637,6 +751,44 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   }
 
   private record ScoreEntry(UUID playerId, String playerName, int score) {}
+
+  public static final class ScoreArchive {
+    private final String _id;
+    private final String _scope;
+    private final long _createdAtMillis;
+    private final Map<String, Map<UUID, Integer>> _bucketScores;
+
+    private ScoreArchive(
+        String id,
+        String scope,
+        long createdAtMillis,
+        Map<String, Map<UUID, Integer>> bucketScores) {
+      _id = id;
+      _scope = scope;
+      _createdAtMillis = createdAtMillis;
+      Map<String, Map<UUID, Integer>> copiedScores = new LinkedHashMap<>();
+      for (var entry : bucketScores.entrySet()) {
+        copiedScores.put(entry.getKey(), Map.copyOf(entry.getValue()));
+      }
+      _bucketScores = Collections.unmodifiableMap(copiedScores);
+    }
+
+    public String getId() {
+      return _id;
+    }
+
+    public String getScope() {
+      return _scope;
+    }
+
+    public long getCreatedAtMillis() {
+      return _createdAtMillis;
+    }
+
+    public Map<String, Map<UUID, Integer>> getBucketScores() {
+      return _bucketScores;
+    }
+  }
 
   // endregion
 
