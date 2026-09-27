@@ -50,8 +50,24 @@ load_project_env
 
 MODRINTH_TOKEN="${MODRINTH_TOKEN:-}"
 MODRINTH_PROJECT_ID="${MODRINTH_PROJECT_ID:-5NYwxysp}"
-MODRINTH_CHANGELOG="${MODRINTH_CHANGELOG:-Auto release via publish-modrinth.sh}"
-MODRINTH_GAME_VERSIONS="${MODRINTH_GAME_VERSIONS:-1.21,1.21.1,1.21.2,1.21.3,1.21.4,1.21.5,1.21.6,1.21.7}"
+generate_changelog() {
+  local current_tag previous_tag range commits
+  current_tag=$(git -C "$PROJECT_ROOT" describe --tags --exact-match HEAD 2>/dev/null || true)
+  if [[ -n "$current_tag" ]]; then
+    previous_tag=$(git -C "$PROJECT_ROOT" describe --tags --abbrev=0 "${current_tag}^" 2>/dev/null || true)
+    range="${previous_tag:+$previous_tag..}$current_tag"
+  else
+    previous_tag=$(git -C "$PROJECT_ROOT" describe --tags --abbrev=0 2>/dev/null || true)
+    range="${previous_tag:+$previous_tag..}HEAD"
+  fi
+  commits=$(git -C "$PROJECT_ROOT" log --no-merges --format='- %s (%h)' "$range" 2>/dev/null || true)
+  if [[ -z "$commits" ]]; then
+    commits='- No commit messages found for this release.'
+  fi
+  printf '%s\n\n%s\n' "## What's Changed" "$commits"
+}
+MODRINTH_CHANGELOG="${MODRINTH_CHANGELOG:-$(generate_changelog)}"
+MODRINTH_GAME_VERSIONS="${MODRINTH_GAME_VERSIONS:-26.2,26.3}"
 MODRINTH_LOADERS="${MODRINTH_LOADERS:-paper}"
 MODRINTH_VERSION_TYPE="${MODRINTH_VERSION_TYPE:-}"
 MODRINTH_FILE="${MODRINTH_FILE:-}"

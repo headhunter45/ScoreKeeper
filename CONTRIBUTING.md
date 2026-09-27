@@ -12,9 +12,9 @@ Setup our project folder.
 ```bash
 PROJECTS_DIR="$HOME/Projects"
 MINECRAFT_SERVER_PATH="$PROJECTS_DIR/MCServer"
-# Set this to the latest download url on the Paper downloads page [https://papermc.io/downloads](https://papermc.io/downloads) and update the jar name.
-MINECRAFT_SERVER_DOWNLOAD_URI="https://fill-data.papermc.io/v1/objects/fb73c7e310215016955617ab957022d9e1d47aeba206df3a98c5ecb43756527c/paper-1.21.8-25.jar"
-MINECRAFT_SERVER_JAR="paper-1.21.8-25.jar"
+# Use Paper 26.2 or 26.3 only. The project helper scripts resolve the configured Paper build.
+MINECRAFT_SERVER_DOWNLOAD_URI=""
+MINECRAFT_SERVER_JAR="paper-26.2-129.jar"
 mkdir -p "$MINECRAFT_SERVER_PATH"
 # Keep this shell open we will use these variables later.
 ```
@@ -23,9 +23,9 @@ mkdir -p "$MINECRAFT_SERVER_PATH"
 ```powershell
 $projectsDir="$HOME\Projects"
 $minecraftServerDir="$projectsDir\MCServer"
-# Set this to the latest download url on the Paper downloads page [https://papermc.io/downloads](https://papermc.io/downloads) and update the jar name.
-$minecraftServerDownloadUri="https://fill-data.papermc.io/v1/objects/fb73c7e310215016955617ab957022d9e1d47aeba206df3a98c5ecb43756527c/paper-1.21.8-25.jar"
-$minecraftServerJar="paper-1.21.8-25.jar"
+# Use Paper 26.2 or 26.3 only. The project helper scripts resolve the configured Paper build.
+$minecraftServerDownloadUri=""
+$minecraftServerJar="paper-26.2-129.jar"
 New-Item -Type Directory $projectsDir
 New-Item -Type Directory $minecraftServerDir
 # Keep this shell open we will use these variables later.
@@ -34,18 +34,18 @@ New-Item -Type Directory $minecraftServerDir
 ## Install the JDK
 **Linux / WSL**
 ```bash
-apt install openjdk-21-jdk
+apt install openjdk-25-jdk
 ```
 
 **macOS**
 ```zsh
-brew install --cask microsoft-openjdk@21
+brew install --cask microsoft-openjdk@25
 ```
 
 **Windows**
 From Powershell
 ```powershell
-winget install --id Microsoft.OpenJDK.21 --source winget
+winget install --id Microsoft.OpenJDK.25 --source winget
 ```
 
 ## Setup a PaperMC Server
@@ -108,7 +108,7 @@ Our scripts depend on two environment variables. You can set them each time you 
 To set them for the current session run these commands. To set for every new session add these commands to your `.bashrc` or `.zshrc` file.
 ```bash
 MINECRAFT_SERVER_PATH="$HOME/Projects/MCServer"
-MINECRAFT_SERVER_JAR="paper-1.21.8-25.jar"
+MINECRAFT_SERVER_JAR="paper-26.2-129.jar"
 ```
 
 **Windows**
@@ -116,13 +116,13 @@ MINECRAFT_SERVER_JAR="paper-1.21.8-25.jar"
 To set them for a single session run these commands.
 ```powershell
 $env:MINECRAFT_SERVER_PATH = "$HOME\Projects\MCServer"
-$env:MINECRAFT_SERVER_JAR = "paper-1.21.8-25.jar"
+$env:MINECRAFT_SERVER_JAR = "paper-26.2-129.jar"
 ```
 
 If you want them available in all of your powershell sessions you can set them permanently like this.
 ```powershell
 [Environment]::SetEnvironmentVariable("MINECRAFT_SERVER_PATH", "$HOME\Projects\MCServer", "User")
-[Environment]::SetEnvironmentVariable("MINECRAFT_SERVER_JAR", "paper-1.21.8-25.jar", "User")
+[Environment]::SetEnvironmentVariable("MINECRAFT_SERVER_JAR", "paper-26.2-129.jar", "User")
 ```
 
 ### Start-Server.ps1 and start-server.sh

@@ -1,7 +1,7 @@
 {
   "id": "scorekeeper",
   "title": "ScoreKeeper",
-  "description": "Paper Minecraft plugin for tracking and managing player scores.",
+  "description": "A reusable Paper 26.2/26.3 scoring engine with named buckets, custom reporting, persistent archives, high-score runs, player commands, and a public API for companion plugins.",
   "docId": "ScoreKeeper",
   "image": {
     "url": "https://image.pollinations.ai/prompt/pixel%20art%20Minecraft%20server%20scoreboard%20with%20a%20glowing%20diamond%20and%20number%20counters%2C%20clean%20square%20game%20plugin%20thumbnail%2C%20no%20text",

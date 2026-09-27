@@ -46,4 +46,4 @@ Other plugins can create buckets with `createBucket(id, singular, plural, initia
 
 ## Compatibility
 
-Built for Paper and uses Bukkit and Adventure APIs.
+Built exclusively for Paper 26.2 and 26.3 with the Paper API and Adventure APIs. Bukkit and Spigot servers are not supported.

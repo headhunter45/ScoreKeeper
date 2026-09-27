@@ -1,7 +1,7 @@
 name: ScoreKeeper
 main: com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin
 version: ${version}
-api-version: 1.21
+api-version: '26.2'
 commands:
     score-get:
         description: Displays the player's score.
@@ -12,11 +12,11 @@ commands:
     score-subtract:
         description: Subtracts points from the player's score.
         usage: /score-subtract [playername] <amount>
-    score-reset: 
+    score-reset:
         description: Resets the player's score
         usage: /score-reset [playername]
     score-archive:
-        description: Archives and resets the player's score 
+        description: Archives and resets the player's score
         usage: /score-archive [playername]
     score-archive-list:
         description: Lists saved score archives or displays one archive.

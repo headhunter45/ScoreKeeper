@@ -1,5 +1,7 @@
 # ScoreKeeper Plugin
 
+ScoreKeeper supports Paper 26.2 and 26.3 only. Bukkit and Spigot servers are not supported.
+
 ## Running
 
 ### Commands

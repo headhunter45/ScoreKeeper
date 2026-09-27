@@ -7,7 +7,7 @@
 
 ## 1. What is ScoreKeeper?
 
-ScoreKeeper is a **Paper Minecraft plugin** (Java 21, Bukkit/Adventure APIs) that manages player
+ScoreKeeper is a **Paper Minecraft plugin** (Java 25, Paper/Adventure APIs) that manages player
 score tracking. It exposes five in-game/console commands (`/score-get`, `/score-add`,
 `/score-subtract`, `/score-reset`, `/score-archive`) for manual score manipulation — no events,
 no timers, no automation.
@@ -24,11 +24,11 @@ and scoring formulas are all **future scope**. See §4 for the gap between *what
 | Item | Value |
 |------|-------|
 | Language | Java 21 (Gradle auto-downloads toolchain) |
-| Runtime target | Paper 1.21.7 (Bukkit + Adventure APIs) |
+| Runtime target | Paper 26.2 and 26.3 |
 | Build tool | Gradle 8.14.3 (`gradlew`) |
 | Linting | Spotless (`googleJavaFormat()` + license header from `config/license-header.txt`) |
 | Versioning | `org.danilopianini.git-sensitive-semantic-versioning`; minimum version `0.2.1`; reads `vX.Y.Z` tags |
-| External deps | **None at runtime.** `paper-api:1.21.7-R0.1-SNAPSHOT` is `compileOnly` only. |
+| External deps | **None at runtime.** The Paper API is `compileOnly` only. |
 | CI/release entry point | Run `./gradlew spotlessCheck build`, tag the release commit (for example, `git tag -a v0.2.2 -m "Release v0.2.2"`), then rebuild to produce the stable release artifact |
 
 ### Build quickly
@@ -104,7 +104,7 @@ ADMIN / CONSOLE / RCON ──▶ types a /score-* command
 
 ### File: ScoreKeeperPlugin.java (`ScoreKeeperPlugin`)
 
-- `main` class in `plugin.yml` (Bukkit plugin entry point)
+- `main` class in `plugin.yml` (Paper plugin entry point)
 - `HashMap<UUID, Integer> _playerScores` at line 38 — the sole score store
 - `onEnable()` (line 52): wires five command executors, logs \"load not implemented\" warning
 - `onDisable()` (line 46): logs \"save not implemented\" warning — scores lost on shutdown
@@ -227,7 +227,7 @@ asynchronously could corrupt state via non-atomic read-modify-write.
 
 ### Run locally (Paper server)
 
-1. Download Paper 1.21.7 from `https://papermc.io`
+1. Download Paper 26.2 or 26.3 from `https://papermc.io`
 2. Copy the built jar into `plugins/`
 3. Start the server, verify onEnable logs:
    ```
