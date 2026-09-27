@@ -19,12 +19,14 @@ package com.majinnaibu.minecraft.plugins.scorekeeper;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.Map;
 import java.util.UUID;
 import java.util.logging.Level;
 
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreAddCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreArchiveCommand;
+import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreBucketCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreGetCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreResetCommand;
 import com.majinnaibu.minecraft.plugins.scorekeeper.commands.ScoreSubtractCommand;
@@ -33,12 +35,16 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.ConfigurationSection;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 public class ScoreKeeperPlugin extends JavaPlugin {
-  private final HashMap<UUID, Integer> _playerScores = new HashMap<UUID, Integer>();
+  private final Map<String, ScoreBucket> _buckets = new LinkedHashMap<>();
+  private final Map<String, Map<UUID, Integer>> _bucketScores = new LinkedHashMap<>();
+  private final Map<UUID, String> _playerBuckets = new LinkedHashMap<>();
+  private String _defaultBucketId = "points";
   public final String _logPrefix = "[ScoreKeeper] ";
   public final Component _messagePrefix =
       Component.text("[")
@@ -48,8 +54,19 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   @Override
   public void onDisable() {
     YamlConfiguration scores = new YamlConfiguration();
-    for (var entry : _playerScores.entrySet()) {
-      scores.set(entry.getKey().toString(), entry.getValue());
+    scores.set("version", 2);
+    scores.set("default-bucket", _defaultBucketId);
+    for (ScoreBucket bucket : _buckets.values()) {
+      String path = "buckets." + bucket.getId();
+      scores.set(path + ".singular", bucket.getSingular());
+      scores.set(path + ".plural", bucket.getPlural());
+      scores.set(path + ".initial-value", bucket.getInitialValue());
+      for (var entry : _bucketScores.get(bucket.getId()).entrySet()) {
+        scores.set(path + ".scores." + entry.getKey(), entry.getValue());
+      }
+    }
+    for (var entry : _playerBuckets.entrySet()) {
+      scores.set("player-buckets." + entry.getKey(), entry.getValue());
     }
     try {
       scores.save(new File(getDataFolder(), "scores.yml"));
@@ -65,18 +82,11 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     getCommand("score-subtract").setExecutor(new ScoreSubtractCommand(this));
     getCommand("score-reset").setExecutor(new ScoreResetCommand(this));
     getCommand("score-archive").setExecutor(new ScoreArchiveCommand(this));
+    getCommand("score-bucket").setExecutor(new ScoreBucketCommand(this));
 
-    File scoreFile = new File(getDataFolder(), "scores.yml");
-    if (scoreFile.isFile()) {
-      YamlConfiguration scores = YamlConfiguration.loadConfiguration(scoreFile);
-      for (String key : scores.getKeys(false)) {
-        try {
-          _playerScores.put(UUID.fromString(key), scores.getInt(key));
-        } catch (IllegalArgumentException ex) {
-          logWarning("Ignoring score with invalid player UUID: " + key);
-        }
-      }
-    }
+    _buckets.put("points", new ScoreBucket("points", "point", "points", 0));
+    _bucketScores.put("points", new LinkedHashMap<>());
+    loadScores();
 
     logInfo(
         getPluginMeta().getName() + " version " + getPluginMeta().getVersion() + " is enabled.");
@@ -84,8 +94,11 @@ public class ScoreKeeperPlugin extends JavaPlugin {
 
   // region Commands
   public void addScore(Player player, int amount) {
-    int oldScore = getPlayerScore(player);
-    setPlayerScore(player, oldScore + amount);
+    addScore(player, getPlayerBucket(player), amount);
+  }
+
+  public void addScore(Player player, String bucketId, int amount) {
+    setScore(player, bucketId, getScore(player, bucketId) + amount);
   }
 
   public void archiveScore(Player player) {
@@ -93,20 +106,77 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   }
 
   public int getScore(Player player) {
-    return getPlayerScore(player);
+    return getScore(player, getPlayerBucket(player));
+  }
+
+  public int getScore(Player player, String bucketId) {
+    ScoreBucket bucket = requireBucket(bucketId);
+    return _bucketScores
+        .get(bucketId)
+        .computeIfAbsent(player.getUniqueId(), uuid -> bucket.getInitialValue());
   }
 
   public void resetScore(Player player) {
-    setPlayerScore(player, 0);
+    resetScore(player, getPlayerBucket(player));
+  }
+
+  public void resetScore(Player player, String bucketId) {
+    setScore(player, bucketId, requireBucket(bucketId).getInitialValue());
   }
 
   public void setScore(Player player, int score) {
-    setPlayerScore(player, score);
+    setScore(player, getPlayerBucket(player), score);
+  }
+
+  public void setScore(Player player, String bucketId, int score) {
+    requireBucket(bucketId);
+    _bucketScores.get(bucketId).put(player.getUniqueId(), score);
   }
 
   public void subtractScore(Player player, int amount) {
-    int oldScore = getPlayerScore(player);
-    setPlayerScore(player, oldScore - amount);
+    subtractScore(player, getPlayerBucket(player), amount);
+  }
+
+  public void subtractScore(Player player, String bucketId, int amount) {
+    setScore(player, bucketId, getScore(player, bucketId) - amount);
+  }
+
+  public ScoreBucket createBucket(String id, String singular, String plural, int initialValue) {
+    ScoreBucket bucket = new ScoreBucket(id, singular, plural, initialValue);
+    if (_buckets.containsKey(id)) {
+      throw new IllegalArgumentException("A score bucket with ID " + id + " already exists");
+    }
+    _buckets.put(id, bucket);
+    _bucketScores.put(id, new LinkedHashMap<>());
+    return bucket;
+  }
+
+  public ScoreBucket getBucket(String bucketId) {
+    return _buckets.get(bucketId);
+  }
+
+  public Map<String, ScoreBucket> getBuckets() {
+    return Map.copyOf(_buckets);
+  }
+
+  public String getPlayerBucket(Player player) {
+    return _playerBuckets.getOrDefault(player.getUniqueId(), _defaultBucketId);
+  }
+
+  public void switchPlayerBucket(Player player, String bucketId) {
+    requireBucket(bucketId);
+    UUID playerId = player.getUniqueId();
+    if (bucketId.equals(_defaultBucketId)) {
+      _playerBuckets.remove(playerId);
+    } else {
+      _playerBuckets.put(playerId, bucketId);
+    }
+  }
+
+  public void switchAllPlayers(String bucketId) {
+    requireBucket(bucketId);
+    _defaultBucketId = bucketId;
+    _playerBuckets.clear();
   }
 
   // endregion
@@ -116,16 +186,84 @@ public class ScoreKeeperPlugin extends JavaPlugin {
     reciever.sendMessage(_messagePrefix.append(message));
   }
 
-  private int getPlayerScore(Player player) {
-    UUID uuid = player.getUniqueId();
-    if (!_playerScores.containsKey(uuid)) {
-      _playerScores.put(uuid, 0);
+  private ScoreBucket requireBucket(String bucketId) {
+    ScoreBucket bucket = _buckets.get(bucketId);
+    if (bucket == null) {
+      throw new IllegalArgumentException("Unknown score bucket: " + bucketId);
     }
-    return _playerScores.get(uuid);
+    return bucket;
   }
 
-  private void setPlayerScore(Player player, int score) {
-    _playerScores.put(player.getUniqueId(), score);
+  private void loadScores() {
+    File scoreFile = new File(getDataFolder(), "scores.yml");
+    if (!scoreFile.isFile()) {
+      return;
+    }
+
+    YamlConfiguration scores = YamlConfiguration.loadConfiguration(scoreFile);
+    ConfigurationSection bucketSection = scores.getConfigurationSection("buckets");
+    if (bucketSection == null) {
+      loadLegacyScores(scores);
+      return;
+    }
+
+    _buckets.clear();
+    _bucketScores.clear();
+    for (String id : bucketSection.getKeys(false)) {
+      try {
+        createBucket(
+            id,
+            bucketSection.getString(id + ".singular", id),
+            bucketSection.getString(id + ".plural", id),
+            bucketSection.getInt(id + ".initial-value"));
+      } catch (IllegalArgumentException ex) {
+        logWarning("Ignoring invalid score bucket " + id + ": " + ex.getMessage());
+      }
+    }
+    if (!_buckets.containsKey("points")) {
+      createBucket("points", "point", "points", 0);
+    }
+    _defaultBucketId = scores.getString("default-bucket", "points");
+    if (!_buckets.containsKey(_defaultBucketId)) {
+      logWarning("Unknown default score bucket; using points instead.");
+      _defaultBucketId = "points";
+    }
+
+    for (String id : _buckets.keySet()) {
+      ConfigurationSection bucketScores =
+          scores.getConfigurationSection("buckets." + id + ".scores");
+      if (bucketScores != null) {
+        loadPlayerScores(bucketScores, _bucketScores.get(id));
+      }
+    }
+    ConfigurationSection playerBuckets = scores.getConfigurationSection("player-buckets");
+    if (playerBuckets != null) {
+      for (String key : playerBuckets.getKeys(false)) {
+        try {
+          UUID playerId = UUID.fromString(key);
+          String bucketId = playerBuckets.getString(key);
+          if (_buckets.containsKey(bucketId) && !bucketId.equals(_defaultBucketId)) {
+            _playerBuckets.put(playerId, bucketId);
+          }
+        } catch (IllegalArgumentException ex) {
+          logWarning("Ignoring invalid player bucket UUID: " + key);
+        }
+      }
+    }
+  }
+
+  private void loadLegacyScores(YamlConfiguration scores) {
+    loadPlayerScores(scores, _bucketScores.get("points"));
+  }
+
+  private void loadPlayerScores(ConfigurationSection scores, Map<UUID, Integer> target) {
+    for (String key : scores.getKeys(false)) {
+      try {
+        target.put(UUID.fromString(key), scores.getInt(key));
+      } catch (IllegalArgumentException ex) {
+        logWarning("Ignoring score with invalid player UUID: " + key);
+      }
+    }
   }
 
   // endregion
