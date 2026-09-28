@@ -27,6 +27,20 @@ jobs:
           gradle-version: '9.8.0'
           cache-read-only: ${{ github.ref != 'refs/heads/develop' }}
 
+      - name: Run Unit Tests
+        run: ./gradlew test
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ScoreKeeper-test-report
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+          if-no-files-found: ignore
+          retention-days: 14
+
       - name: Build with Gradle Wrapper
         run: ./tools/build-plugin.sh
 
