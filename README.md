@@ -1,5 +1,7 @@
 # ScoreKeeper Plugin
 
+[![Java CI with Gradle](https://github.com/headhunter45/ScoreKeeper/actions/workflows/gradle.yml/badge.svg)](https://github.com/headhunter45/ScoreKeeper/actions/workflows/gradle.yml)
+
 ScoreKeeper supports Paper 26.2 and 26.3 only. Bukkit and Spigot servers are not supported.
 
 ## Running
