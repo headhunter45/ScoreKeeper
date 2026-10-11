@@ -6,7 +6,7 @@ plugins {
 }
 
 group = 'com.majinnaibu.minecraft.plugins'
-description = "ScoreKeeper"
+description = "Score Keeper"
 
 gitSemVer {
     minimumVersion.set('0.2.1')

@@ -1,23 +1,48 @@
 {
-  "id": "scorekeeper",
-  "title": "ScoreKeeper",
-  "description": "A reusable Paper 26.2/26.3 scoring engine with named buckets, custom reporting, persistent archives, high-score runs, player commands, and a public API for companion plugins.",
-  "docId": "ScoreKeeper",
-  "image": {
-    "url": "https://image.pollinations.ai/prompt/pixel%20art%20Minecraft%20server%20scoreboard%20with%20a%20glowing%20diamond%20and%20number%20counters%2C%20clean%20square%20game%20plugin%20thumbnail%2C%20no%20text",
-    "alt": "Pixel art scoreboard with a diamond for the ScoreKeeper Minecraft plugin",
-    "prompt": "Pixel art Minecraft server scoreboard with a glowing diamond and number counters, clean square game plugin thumbnail, no text",
-    "width": 1024,
-    "height": 1024,
-    "backgroundClassName": "bg-surface"
-  },
-  "url": "/projects/scorekeeper",
-  "tags": [],
-  "source": {
-    "type": "",
-    "url": ""
-  },
-  "feedback": {
-    "url": ""
+  "score-keeper": {
+    "id": "score-keeper",
+    "title": "Score Keeper",
+    "description": "A Paper 26.2/26.3 scoring engine with named buckets, custom reporting, shutdown-persisted scores and archives, high-score runs, player commands, and a main-thread API for companion plugins.",
+    "docId": "Score-Keeper",
+    "headerImage": null,
+    "platforms": [
+      {
+        "name": "Paper",
+        "info": "Paper 26.2 and 26.3; Java 25 required. Bukkit and Spigot servers are not supported.",
+        "links": [
+          {
+            "label": "Download on Modrinth",
+            "url": "https://modrinth.com/plugin/scorekeeper"
+          }
+        ]
+      }
+    ],
+    "image": {
+      "url": "/projects/score-keeper/logo.png",
+      "alt": "Score Keeper Minecraft plugin logo",
+      "width": 1024,
+      "height": 1024,
+      "backgroundClassName": "bg-surface"
+    },
+    "url": "/projects/score-keeper",
+    "tags": ["Open-Source", "Game", "Minecraft", "Java"],
+    "source": {
+      "type": "github",
+      "url": "https://github.com/headhunter45/ScoreKeeper"
+    },
+    "feedback": {
+      "type": "github-issues",
+      "url": "https://github.com/headhunter45/ScoreKeeper/issues"
+    },
+    "features": [
+      "Named score buckets with custom units, initial values, and reporting policies",
+      "UUID-keyed integer scores with default and per-player bucket selection",
+      "Player, bucket, and all-bucket archives with score resets",
+      "Target-score, timed, and manually stopped high-score runs with top-N results",
+      "Optional pre-run score snapshots and restoration",
+      "YAML persistence on clean shutdown",
+      "Player commands and a main-thread API for companion plugins"
+    ],
+    "technology": ["Java 25", "Paper API", "Adventure", "Gradle", "YAML"]
   }
 }

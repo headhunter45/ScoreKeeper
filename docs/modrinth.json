@@ -1,7 +1,7 @@
 {
   "name": "Score Keeper",
   "url": "https://modrinth.com/plugin/scorekeeper",
-  "summary": "Track player scores in configurable buckets with custom reporting, high-score runs, and archives. Includes in-game commands and an API for other plugins.",
+  "summary": "A Paper scoring engine with configurable buckets, reporting, high-score runs, shutdown-persisted archives, commands, and a companion-plugin API.",
   "visibility": "public",
   "links": {
     "issueTracker": "https://github.com/headhunter45/ScoreKeeper/issues",

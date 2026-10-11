@@ -1,156 +1,294 @@
-# Contributing to ScoreKeeper
-**TODO:** Add info about the various gradle tasks.
+# Contributing to Score Keeper
 
-Thank you for your interest in contributing to the ScoreKeeper plugin! This guide will help you set up your development environment and follow best practices for working with the project.
+**Start here to work on Score Keeper.** This guide covers the project structure,
+setup, validation, and publishing. The display name is **Score Keeper**; the
+repository, Gradle project, plugin ID, and jar basename remain `ScoreKeeper`.
 
-# Getting Started
-Pick a folder to hold your minecraft server and this project I'm going to use `$HOME/Projects`. My Minecraft server will be in `$HOME/Projects/MCServer` and this project will be in `$HOME/Projects/ScoreKeeper`.
+## Your first contribution
 
-Setup our project folder.
+1. Read [the project overview](#project-overview-and-source-map) below.
+   Consult [README.md](README.md) if you need user-facing commands and behavior.
+2. Read [AGENTS.md](AGENTS.md) once for the shared rules humans and agents follow.
+   This guide owns onboarding; that file owns change discipline and safety rules.
+3. Follow [prerequisites and checkout](#prerequisites-and-checkout) to build.
+4. Make a scoped change, then use [build and validation tasks](#build-format-and-validation-tasks).
+   Set up a local Paper server only if the affected behavior needs runtime testing.
+5. Run the relevant [manual checks](docs/human-tests.md) and report what you verified.
 
-**Linux, macOS, and WSL**
+You do **not** need to read every document before starting. Use these deeper
+references when your task needs them:
+
+- [Domain reference](docs/domain-score-tracking.md): score rules, YAML layout,
+  archives, and ranking.
+- [Integration reference](docs/plugin-integration-and-event-wiring.md): detailed
+  command/lifecycle wiring and API usage, especially for companion-plugin authors.
+- [Modernization plan](docs/Modernize.md) and [TODO.md](TODO.md): planned work,
+  not additional onboarding requirements.
+
+The old `.cursor` plan and rules are historical context, not the current setup
+or validation procedure. In particular, the Maven migration is already complete.
+
+## Project overview and source map
+
+Score Keeper is a command-driven Paper scoring engine: named buckets hold
+UUID-keyed integer scores with custom units, initial values, and reporting.
+It provides eight commands, score archives, high-score runs, and a public Java
+API. Gameplay events do not award scores automatically; companion plugins can
+provide that behavior.
+
+| Source | Responsibility |
+| --- | --- |
+| [ScoreKeeperPlugin.java](src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/ScoreKeeperPlugin.java) | Entry point, state, public API, persistence, reporting, ranking, and run completion |
+| [ScoreBucket.java](src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/ScoreBucket.java) | Immutable bucket definition and validation |
+| [ScoreReporting.java](src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/ScoreReporting.java) | Reporting policy enum and parsing |
+| [commands/](src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/commands/) | Eight executors: arguments, online targets, selected permission guards, and messages |
+| [plugin.yml](src/main/resources/plugin.yml) | Plugin identity, entry point, API version, command declarations, and admin permission |
+| [tools/](tools/) / [PowerShell helpers](tools/powershell/) | Developer/server/release tooling; platform differences are documented below |
+| [.env.example](.env.example) | Bash helper configuration template, not plugin configuration |
+
+### Architecture in one minute
+
+```text
+Paper command -> executor parses/checks permissions/resolves online target
+             -> ScoreKeeperPlugin selects bucket and updates UUID-keyed state
+             -> bucket reporting OR run reporting and target completion
+
+onEnable  -> wire commands -> initialize points -> load scores and archives
+          -> check existing runs -> schedule synchronous checks every 20 ticks
+onDisable -> save scores.yml (version 3) and archives.yml
+```
+
+Most behavior lives in the entry-point class; there is no separate service layer,
+custom scoring event API, ServicesManager registration, or standalone API artifact.
+State uses nested `LinkedHashMap` collections and is not thread-safe. Keep state
+and Paper API calls on the main thread.
+
+There is no plugin `config.yml`: commands/API create buckets and policies,
+which are stored in the plugin's data files. Do not edit generated `build/`,
+`bin/`, or `.gradle/` outputs.
+
+### Behavior to understand before changing it
+
+- Scores, assignments, active runs, and archives save **on disable**, not every
+  mutation. Crashes can lose recent changes; the two YAML writes are not a transaction.
+  Loading supports legacy flat UUID scores but is not comprehensive schema validation.
+- Score get/add/subtract/reset and archive-list are unguarded; players can modify
+  any online player's score. Archive creation, bucket administration, and run
+  management require `scorekeeper.admin`; self bucket selection is open.
+- Named targets are online-only. `/score-get` reads the target's active bucket,
+  lazily creates an entry at its initial value, and shows only the numeric score.
+  An explicit bucket argument is pending SK-13; the API already has that overload.
+- Amounts are signed Java integers; negatives are allowed and overflow wraps.
+  Bucket IDs are case-sensitive.
+- `until-disabled` runs are saved/resumed across clean restarts, not ended by
+  disable. Reset runs restore the pre-run snapshot. Results are announced/logged,
+  not automatically archived; stop a run before archiving its bucket.
+
+The [domain reference](docs/domain-score-tracking.md) explains these rules in
+detail. Treat changes to them as deliberate behavior changes, not incidental cleanup.
+
+## Prerequisites and checkout
+
+The project targets **Paper 26.2 and 26.3 only**, compiles against
+`io.papermc.paper:paper-api:26.2.build.129-stable`, and uses **Java 25** and the
+**Gradle 9.8.0 wrapper**. Bukkit and Spigot servers are not supported.
+
+Install Git and a JDK 25, and set `JAVA_HOME` to the JDK root (not its `bin`
+directory). Confirm `java -version` and `javac -version` report 25. The Gradle
+toolchain resolver can download the compile JDK, but Gradle itself still needs
+a compatible JVM to start. Automatic local JDK detection is disabled in
+[gradle.properties](gradle.properties); `JAVA_HOME` is the configured discovery source.
+
 ```bash
-PROJECTS_DIR="$HOME/Projects"
-MINECRAFT_SERVER_PATH="$PROJECTS_DIR/MCServer"
-# Use Paper 26.2 or 26.3 only. The project helper scripts resolve the configured Paper build.
-MINECRAFT_SERVER_DOWNLOAD_URI=""
-MINECRAFT_SERVER_JAR="paper-26.2-129.jar"
-mkdir -p "$MINECRAFT_SERVER_PATH"
-# Keep this shell open we will use these variables later.
-```
-
-**Windows**
-```powershell
-$projectsDir="$HOME\Projects"
-$minecraftServerDir="$projectsDir\MCServer"
-# Use Paper 26.2 or 26.3 only. The project helper scripts resolve the configured Paper build.
-$minecraftServerDownloadUri=""
-$minecraftServerJar="paper-26.2-129.jar"
-New-Item -Type Directory $projectsDir
-New-Item -Type Directory $minecraftServerDir
-# Keep this shell open we will use these variables later.
-```
-
-## Install the JDK
-**Linux / WSL**
-```bash
-apt install openjdk-25-jdk
-```
-
-**macOS**
-```zsh
-brew install --cask microsoft-openjdk@25
-```
-
-**Windows**
-From Powershell
-```powershell
-winget install --id Microsoft.OpenJDK.25 --source winget
-```
-
-## Setup a PaperMC Server
-**Linux, macOS, and WSL**
-```bash
-# You're probably still here, but if not go to the server dir.
-cd "$MINECRAFT_SERVER_PATH"
-curl -O "$MINECRAFT_SERVER_DOWNLOAD_URI"
-java -jar "$MINECRAFT_SERVER_JAR"
-nano eula.txt # Change eula=false to eula=true, then save and exit.
-java -jar "$MINECRAFT_SERVER_JAR"
-```
-
-**Windows**
-```powershell
-# You're probably still here, but if not go to the server dir.
-Set-Location $minecraftServerDir
-Invoke-WebRequest -Uri $minecraftServerDownloadUri -OutFile (Split-Path $minecraftServerDownloadUri -Leaf)
-java -jar $minecraftServerJar
-notepad eula.txt
-# Change eula=false to eula=true, then save and close the file.
-java -jar $minecraftServerJar
-```
-
-If you get windows security popups about java with the little java dude allow them. It's because the server is listening on the network. Now you should have the server running and be dropped at a prompt like `> `. Type `stop` and hit enter to kill the server. You can also try CTRL + C.
-
-## Get the Code
-**Linux, macOS, and WSL**
-```bash
-cd "$PROJECTS_DIR"
 git clone https://github.com/headhunter45/ScoreKeeper.git
-code ScoreKeeper
+cd ScoreKeeper
+./gradlew spotlessCheck build
 ```
 
-```powershell
-Set-Location $projectsDir
-git clone https://github.com/headhunter45/ScoreKeeper.git
-# Then to open VSCode
-code ScoreKeeper
-```
+On Windows, use `.\gradlew.bat spotlessCheck build` from PowerShell instead.
+No globally installed Gradle or Maven is required.
 
-## Building the Plugin
-This should download the preferred version of our build tool (gradle) and use it to build the project. Among other intermediate files it will create `build/libs/ScoreKeeper-${Version}.jar`. This is the plugin jar that you copy to the minecraft server to install the plugin. From now on you will use the utility scripts in `tools\powershell\*.ps1` or `tools/bash/*.sh` to build and deploy the plugin to our test server.
+On macOS/Linux, [tools/build-plugin.sh](tools/build-plugin.sh) is an alternative:
+it downloads/caches Temurin 25 under `.gradle/user-home/jdks`, sets `JAVA_HOME`
+for that invocation, and runs `build`. It accepts additional Gradle arguments:
 
-**Linux, macOS, and WSL**
 ```bash
-./gradlew build
+./tools/build-plugin.sh spotlessCheck
 ```
 
-**Windows**
-```powershell
-.\gradlew.bat build
-```
+That JDK selection is local to the script; it does not configure Java for your
+terminal, IDE, Paper server, or later direct wrapper invocations.
 
-## Using the Utility Scripts
-Our scripts depend on two environment variables. You can set them each time you open a shell or set them once for every shell your user opens. The variables are `MINECRAFT_SERVER_PATH` and `MINECRAFT_SERVER_JAR`. They are used by the scripts to know where the server is so they can control it and deploy the plugin.
+## Build, format, and validation tasks
 
-**Linux, macOS, and WSL**
+Run these from the repository root, using the Windows wrapper where applicable.
 
-To set them for the current session run these commands. To set for every new session add these commands to your `.bashrc` or `.zshrc` file.
+| Command | Purpose |
+| --- | --- |
+| `./gradlew build` | Compile, package, and run configured checks, including Spotless and `test`. |
+| `./gradlew assemble` | Package without running the full check lifecycle. |
+| `./gradlew spotlessCheck` | Verify Java formatting, imports, and license headers. |
+| `./gradlew spotlessApply` | Apply the configured Java formatting; inspect the diff afterward. |
+| `./gradlew test` | Run the default test task; currently there are no test sources/dependencies, so this is `NO-SOURCE`. |
+| `./gradlew javadoc` | Generate Java API documentation. |
+| `./gradlew properties --property version` | Inspect the Git-derived version. |
+| `./gradlew publishToMavenLocal` | Publish the Java component to your local Maven repository for companion-plugin development. |
+
+Build configuration lives in [build.gradle](build.gradle) (Groovy DSL), with
+`java-library` and `maven-publish`. Paper is a `compileOnly` dependency supplied
+by the server; no third-party runtime dependencies are bundled.
+Spotless 8.10.3 uses google-java-format 1.36.1, import cleanup/order, and
+[the license header](config/license-header.txt). The wrapper version/checksum
+are pinned in [wrapper properties](gradle/wrapper/gradle-wrapper.properties);
+the Foojay toolchain resolver is configured in [settings.gradle](settings.gradle).
+
+The plugin artifact is `build/libs/ScoreKeeper-<version>.jar`. Versioning uses
+`org.danilopianini.git-sensitive-semantic-versioning` version 7.0.24, a minimum
+project version of `0.2.1`, and `v`-prefixed tags. Do not hardcode a release
+version in the manifest:
+[plugin.yml](src/main/resources/plugin.yml) expands `${version}` during resource processing.
+
+There is **no behavioral automated coverage yet** and no `integrationTest` task.
+The test infrastructure and coverage are pending SK-08 through SK-12 in
+[TODO.md](TODO.md). A successful build is not proof that in-game behavior works.
+For code changes, run the smallest relevant existing checks, then exercise the
+affected scenarios in [human-tests.md](docs/human-tests.md). Documentation-only
+changes need link/metadata checks, not a Paper server.
+
+CI in [gradle.yml](.github/workflows/gradle.yml) runs for pushes and pull requests
+to `develop`. It invokes `test`, builds with the Bash helper, and uploads jar
+artifacts (test reports only if present). It does not start Paper, publish a
+release, or verify the two-version runtime compatibility claim.
+
+## Local Paper server: macOS, Linux, or WSL
+
+The Bash server/deploy/backup/restore/publish scripts read a root `.env`:
+
 ```bash
-MINECRAFT_SERVER_PATH="$HOME/Projects/MCServer"
-MINECRAFT_SERVER_JAR="paper-26.2-129.jar"
+cp .env.example .env
 ```
 
-**Windows**
+Edit it using [the example](.env.example) as the configuration reference:
 
-To set them for a single session run these commands.
+- `PAPER_VERSION`, `PAPER_BUILD`, and `MINECRAFT_SERVER_JAR` must agree.
+  The example pins `26.2`, build `129`, and `paper-26.2-129.jar`. To test 26.3,
+  select a build for that version or clear both build and jar values to resolve
+  the latest stable build.
+- `MINECRAFT_SERVER_PATH` and `MINECRAFT_BACKUP_PATH` accept project-relative
+  paths, absolute paths, or `~/` paths. Defaults in the example are `./server`
+  and `./backups`.
+- Values are literal `KEY=value` data, not shell code. Matching outer quotes
+  are removed, but `$HOME`, variable references, and command substitutions are
+  **not expanded**. Existing nonempty exported environment variables take precedence.
+- Keep `.env` and publishing credentials out of Git.
+
+For server startup, install `curl`, `jq`, `java` (Java 25), and `shasum`.
+[start-server.sh](tools/start-server.sh) downloads missing Paper jars via the
+Fill v3 API, verifies the supplied SHA-256 checksum, and runs Java in the
+foreground with `--nogui`. It does not open a management GUI.
+
+**Process safety:** the Bash start helper calls the stop helper, which matches
+all Java processes running `paper-*.jar`, not just the configured server.
+Backup/restore helpers also check for any such running server. Do not use these
+helpers on a shared host without inspecting the processes and intended paths.
+The safest stop is `stop` in your own server console; do not rely on forced
+termination to save plugin data.
+
+On an isolated development machine:
+
+```bash
+./tools/build-plugin.sh
+./tools/deploy-plugin.sh
+./tools/start-server.sh
+```
+
+Read and accept Minecraft's EULA before setting `eula=true` in the server's
+`eula.txt`. The first launch exits until this is done; rerun the start helper
+after accepting it. Use the matching Minecraft Java Edition client and connect
+to `localhost` (or the server host's address). For WSL, run the client on Windows.
+
+To redeploy, stop the server cleanly, build, copy the jar, and restart. Both
+deploy helpers select the newest jar and **only warn** about stale sources;
+they do not rebuild or reject stale artifacts. Remove older Score Keeper jars
+from the test server's `plugins` directory so only the intended version loads.
+
+### Backup and restore
+
+[backup-server.sh](tools/backup-server.sh) archives plugins, config, world
+directories containing `level.dat`, and top-level settings into a timestamped
+`.tar.bz2`. Stop the server first; `--force` permits a potentially inconsistent
+live backup. Generated Paper remapping caches and world session locks are excluded.
+
+[restore-server.sh](tools/restore-server.sh) defaults to the newest backup,
+asks for confirmation, and takes a pre-restore backup unless `--no-backup` is
+specified. It **replaces** top-level items present in the archive. Inspect the
+archive and resolved paths first, and use only a disposable/test server.
+
+## Windows / PowerShell
+
+The PowerShell helpers are not equivalent to the Bash server tooling: they do
+not parse `.env`, download Paper, or provide backup/restore/publishing helpers.
+Install JDK 25, obtain a Paper 26.2 or 26.3 server jar from
+[Paper downloads](https://papermc.io/downloads/paper), and configure it manually.
+Start it once, read/accept the EULA, and then launch it again.
+
+Set real absolute paths in the current PowerShell session:
+
 ```powershell
 $env:MINECRAFT_SERVER_PATH = "$HOME\Projects\MCServer"
 $env:MINECRAFT_SERVER_JAR = "paper-26.2-129.jar"
+.\tools\powershell\Build-Plugin.ps1
+.\tools\powershell\Deploy-Plugin.ps1
+Set-Location $env:MINECRAFT_SERVER_PATH
+java -jar $env:MINECRAFT_SERVER_JAR --nogui
 ```
 
-If you want them available in all of your powershell sessions you can set them permanently like this.
-```powershell
-[Environment]::SetEnvironmentVariable("MINECRAFT_SERVER_PATH", "$HOME\Projects\MCServer", "User")
-[Environment]::SetEnvironmentVariable("MINECRAFT_SERVER_JAR", "paper-26.2-129.jar", "User")
-```
+Use your actual downloaded jar filename. Build uses the wrapper and your
+configured Java environment. The legacy PowerShell start/stop helpers attempt
+to discover Java processes by command line and forcibly terminate matches.
+Prefer starting Java explicitly and typing `stop` in its console for reliable
+shutdown and persistence.
 
-### Start-Server.ps1 and start-server.sh
-Run `tools\powershell\Start-Server.ps1` or `tools/bash/start-server.sh` to start the server and open a GUI to manage it.
+## Publishing
 
-### Stop-Server.ps1 and stop-server.sh
-Run `tools\powershell\Stop-Server.ps1` or `tools/bash/stop-server.sh` to stop the server. You can also safely close the GUI.
+[tools/publish-local.sh](tools/publish-local.sh) bootstraps a local JDK like the
+build helper, then runs `publishToMavenLocal`. Coordinates are
+`com.majinnaibu.minecraft.plugins:ScoreKeeper:<version>`.
 
-### Build-Plugin.ps1 and build-plugin.sh
-Run `tools\powershell\Build-Plugin.ps1` or `tools/bash/build-plugin.sh` to build the plugin. This builds the plugin in `build/libs` as a jar named `ScoreKeeper-${VERSION}.jar`. To install the plugin manually you can copy this to `$env:MINECRAFT_SERVER_PATH\plugins` or `$MINECRAFT_SERVER_PATH/plugins` and restart the server.
+[tools/publish-modrinth.sh](tools/publish-modrinth.sh) uploads a jar version to
+Modrinth. Run it **only when intentionally publishing**, after validation:
 
-### Deploy-Plugin.ps1 and deploy-plugin.sh
-Run `tools\powershell\Deploy-Plugin.ps1` or `tools/bash/deploy-plugin.sh` to copy the plugin to the server plugins directory. This checks if the built plugin is up to date with the source code. If it is, then the script copies the plugin to the plugins directory to install it. To use the new plugin restart the server.
+1. Decide whether this is a tagged stable release or a development build.
+   For a stable release, tag the approved commit with `v<version>` and rebuild
+   from that tag; inspect Gradle's resulting version and jar metadata.
+2. Configure `.env` with `MODRINTH_TOKEN`, project ID, game versions, and loaders.
+   Defaults advertise Paper `26.2,26.3` and the `paper` loader; test both before
+   publishing that compatibility claim.
+3. Build the intended artifact. Optionally set `MODRINTH_FILE` to its exact path;
+   otherwise the newest non-`-all.jar` jar is selected.
+4. Run the publisher with JDK 25 available to the wrapper. It checks the jar's
+   manifest version against Gradle, derives changelog notes from commits unless
+   overridden, and infers `beta` for versions containing `-`, otherwise `release`.
+   `MODRINTH_VERSION_TYPE` can override this with `alpha`, `beta`, or `release`;
+   `MODRINTH_DEPENDENCIES`, if supplied, must be a JSON array.
 
-# Setting up the Minecraft Client
-- **macOS / Linux:**
-  - Download and install the official Minecraft Launcher from [minecraft.net](https://www.minecraft.net/en-us/download).
-  - Log in with your Mojang/Microsoft account and launch the Java Edition client.
-- **Windows / WSL (Windows Subsystem for Linux):**
-  - For best performance, run the Minecraft client directly under Windows, not inside WSL.
-  - Download and install the official Minecraft Launcher for Windows from [minecraft.net](https://www.minecraft.net/en-us/download).
-  - Use WSL for server and plugin development, and connect to your test server from the Windows client.
+The publisher needs `curl`, `jq`, and `unzip`; it creates a version, **not** an
+update to the hosted project description. Keep [modrinth-description.md](docs/modrinth-description.md)
+and [modrinth.json](docs/modrinth.json) current and update the hosted description
+separately when releasing.
 
-# Connecting the Client to Your Server
-- Start your Paper server (see above).
-- In the Minecraft client, add a new server with the address:
-  - `localhost` (if running both client and server on the same machine)
-  - Or use your machine's IP address if connecting across devices.
+## Documentation and scraper metadata
 
-# Notes
-- Always use the provided scripts and environment variables for consistent server management.
+Keep [README.md](README.md), [modrinth-description.md](docs/modrinth-description.md),
+[project-description.md](docs/project-description.md), and
+[project-description.json](docs/project-description.json) consistent with implemented
+features. Do not present planned work or manual checks as completed coverage.
+
+The scraper JSON must validate against [projects.schema.json](docs/projects.schema.json).
+It is a **slug-keyed object**, currently `{ "score-keeper": { ... } }`, not a
+single unwrapped project. Follow [AGENTS.md](AGENTS.md#documentation-and-operational-safety):
+the existing key, `id`, `title`, `docId`, and image URLs are fixed in the
+consuming project and must remain unchanged during routine metadata updates.
+Image paths are relative to that project's root, not this repository.
+Preserve the route, repository links, and filenames unless the consumer contract
+is intentionally changed. Use "Score Keeper" in descriptive prose.

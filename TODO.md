@@ -1,17 +1,22 @@
-## Tasks
+# Score Keeper Tasks
 
-|  ID   |  Status  | Title |
-|:-----:|:--------:|:------|
-| SK-01 |  Done    | Save scores between server launches. |
-| SK-02 |  Done    | Allow tracking scores by bucket. An admin or other plugin should be able to create types of scores with named other than points. { id: "Bread", singular: "loaf", plural: "loaves", initialValue: 0 } Each player's score will be tracked in a bucket by id. Players may be all switched to a bucket or individually switched. |\
-| SK-03 |  Done    | Add optional score reporting to buckets with these four values. { id: "Bread", singular: "loaf", plural: "loaves", initialValue: 0, reporting:"admin|global|player|none" } admin means ops/admin only, global means everyone on the server, player means only tell the player, and none means don't report changes.
-| SK-04 |  Done    | Tell a player when their bucket changes. Something like "You are now tracking ${id}. You have ${score} ${plural or singular depending in score}." |
-| SK-05 |  Done    | Enable high score runs for a bucket. Admins or pugins should be able to start a run on a certain kind of score. The top n (configurable) players will have their scores reported globally for this bucket and the individual player will have their score reported to them when it changes. Scores will be optionally reset to their initialValue with the old score for this bucket saved. High score runs will have a lifetime of a target high score, a time like 4 hours or 1 week, or until-disabled. When the high score run is finished all players will be messaged a table with the top n places and their scores along with the individual user's place and score. The scores will be reset to their previous values if they were reset to their initialValue at the beginning otherwise they will be left alone. |
-| SK-06 |  Done    | Score archiving. Scores either all or within a given bucket should be able to be archived and reset to their initial value. The archived scores should be able to be listed via a command. |
-| SK-07 |  Done    | Replace 'net.researchgate.release' with org.danilopianini.git-sensitive-semantic-versioning' for our versioning in our build.gradle file. Turn org.gradle.configuration-cache back on after this. Our current version is 0.2.1-SNAPSHOT. Use that as our default or 0.2.1 and tag the commit to update to 0.2.2. |
-| SK-08 |  Ready   | Add JUnit 5 test infrastructure and keep the default Gradle `test` task server-free. Use an in-memory Paper test harness such as MockBukkit for plugin lifecycle and Bukkit/Paper behavior; use Mockito only for narrow API boundaries where a harness is unnecessary. |
-| SK-09 |  Ready   | Add fast unit tests for score and bucket rules: bucket validation and duplicate IDs, initial values, UUID-isolated scores, default and per-player bucket selection, and add/subtract/reset behavior. Keep domain rules independent of a running Minecraft server. |
-| SK-10 |  Ready   | Test YAML persistence and archives using temporary plugin data directories: score/bucket/assignment round trips, active-run state, archive contents and resets, legacy score loading, and malformed or unknown stored entries. |
-| SK-11 |  Ready   | Test command validation and dispatch, reporting policies and messages, bucket-switch messages, and high-score run ranking/lifecycle (top-N ordering, ties, target/duration/manual finish, and score restoration). Use a controllable clock and in-memory scheduler where needed. |
-| SK-12 |  Ready   | Add a separate Gradle `integrationTest` source set/task only for behavior that needs a real Paper server, such as loading the built plugin jar, verifying actual command registration/dispatch, and persistence across a server restart. Run it only when explicitly requested; keep it out of the normal `test` and `build` tasks. |
-| SK-13 |  Ready   | Add a an option to `/score-get` to get the score for a specific bucket. |
+**Done** means implemented in source, not validated by automated behavioral tests.
+**Ready** means not yet implemented. See [docs/Modernize.md](docs/Modernize.md)
+for the broader roadmap and [docs/human-tests.md](docs/human-tests.md) for manual
+pre-release validation.
+
+| ID | Status | Title |
+| --- | --- | --- |
+| SK-01 | Done | Save scores between clean server launches using enable-time load and disable-time save. Crash-safe/periodic persistence is still future work. |
+| SK-02 | Done | Track independent UUID-keyed scores by named bucket with singular/plural units and initial values; support default and individual assignments. |
+| SK-03 | Done | Add per-bucket `admin`, `global`, `player`, and `none` reporting policies. |
+| SK-04 | Done | Notify affected online players when their active bucket changes, including current score and units. |
+| SK-05 | Done | Implement target-score, timed, and manually stopped bucket runs with configurable top N, optional initial reset/snapshot restoration, global leader reporting, and final personal standings. Active runs persist across clean restarts. |
+| SK-06 | Done | Archive player, bucket, or all-bucket scores and reset live entries to initial values; list archive IDs and contents. |
+| SK-07 | Done | Replace the release plugin with Git-sensitive semantic versioning (minimum `0.2.1`, `v` tag prefix) and re-enable Gradle configuration cache. Versions are Git-derived, not a hardcoded snapshot. |
+| SK-08 | Ready | Add JUnit 5 test infrastructure and keep the default Gradle `test` task server-free. Use a compatible in-memory Paper harness such as MockBukkit; use Mockito only for narrow boundaries where a harness is unnecessary. |
+| SK-09 | Ready | Add fast score/bucket tests: validation and duplicates, initial values, UUID isolation, lazy entries, default/per-player selection, and signed add/subtract/reset behavior. |
+| SK-10 | Ready | Test YAML round trips, assignments, active runs/snapshots, archive contents/resets, legacy loading, and malformed/unknown entries using temporary data directories. |
+| SK-11 | Ready | Test command validation/dispatch/permissions, reporting/messages, bucket switches, ranking/ties, top-N thresholds, target/duration/manual completion, and restoration. Use controllable time/scheduling where needed. |
+| SK-12 | Ready | Add a separate opt-in `integrationTest` source set/task for real Paper loading, command dispatch, companion API wiring, and restart persistence. Keep it outside normal `test`/`build`. |
+| SK-13 | Ready | Add an option to `/score-get` for a specific bucket, preserving current optional-player syntax. |

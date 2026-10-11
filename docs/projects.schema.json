@@ -1,0 +1,114 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Projects",
+  "description": "Project metadata keyed by the project route slug.",
+  "type": "object",
+  "patternProperties": {
+    "^[a-z0-9]+(?:-[a-z0-9]+)*$": { "$ref": "#/definitions/project" }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "image": {
+      "type": "object",
+      "required": ["url", "width", "height"],
+      "properties": {
+        "url": {
+          "type": "string",
+          "description": "Public asset path or remote image URL. A blank header image URL falls back to image.",
+          "pattern": "^(\\s*|/[^/].*|https?://.+)$"
+        },
+        "alt": { "type": "string" },
+        "prompt": { "type": "string" },
+        "name": { "type": "string" },
+        "width": { "type": "integer", "minimum": 1 },
+        "height": { "type": "integer", "minimum": 1 },
+        "backgroundClassName": { "type": "string" }
+      },
+      "additionalProperties": false
+    },
+    "projectLink": {
+      "type": "object",
+      "required": ["url"],
+      "properties": {
+        "type": { "type": "string" },
+        "url": { "type": "string", "pattern": "^(\\s*|https?://.+)$" }
+      },
+      "additionalProperties": false
+    },
+    "platform": {
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string", "pattern": "\\S" },
+        "info": { "type": "string" },
+        "links": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["label", "url"],
+            "properties": {
+              "label": { "type": "string", "pattern": "\\S" },
+              "url": {
+                "type": "string",
+                "format": "uri",
+                "pattern": "^https?://.+"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "project": {
+      "type": "object",
+      "required": ["id", "title", "description", "tags"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$" },
+        "title": { "type": "string", "pattern": "\\S" },
+        "description": { "type": "string", "pattern": "\\S" },
+        "docId": { "type": "string", "minLength": 1 },
+        "image": { "$ref": "#/definitions/image" },
+        "headerImage": {
+          "description": "Optional detail-page logo override. Omit, set to null, or use a blank URL to fall back to image. Listing cards continue to use image.",
+          "anyOf": [{ "$ref": "#/definitions/image" }, { "type": "null" }]
+        },
+        "status": { "type": "string" },
+        "platforms": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/platform" }
+        },
+        "url": {
+          "type": "string",
+          "pattern": "^/projects/[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        },
+        "source": {
+          "allOf": [
+            { "$ref": "#/definitions/projectLink" },
+            { "required": ["type"] }
+          ]
+        },
+        "feedback": { "$ref": "#/definitions/projectLink" },
+        "repository": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https?://.+"
+        },
+        "features": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "technology": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

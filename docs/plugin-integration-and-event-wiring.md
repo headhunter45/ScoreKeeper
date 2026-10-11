@@ -1,166 +1,136 @@
-# ScoreKeeper — Plugin Integration & Event/Command Reference
+# Score Keeper - Plugin Integration and Event Wiring
 
-> Analysis for the ScoreKeeper codebase. Scope: how the plugin hooks into the
-> Minecraft (Paper) server runtime — event listeners, command registrations,
-> scheduled/tick logic, and inter-plugin/API surface — with a table mapping each
-> trigger → handler class → effect on score data.
->
-> Platform: **Paper** (`io.papermc.paper:paper-api:1.21.7-R0.1-SNAPSHOT`), Java 21,
-> Gradle. Main class: `com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin`.
+New Score Keeper contributors should start with
+[CONTRIBUTING.md](../CONTRIBUTING.md), which covers architecture, setup, and validation.
+This is an optional detailed reference for runtime wiring and companion-plugin
+authors, not a second onboarding guide. [domain-score-tracking.md](domain-score-tracking.md)
+describes state and [README.md](../README.md) gives full command syntax.
 
----
+## Paper lifecycle
 
-## 1. TL;DR for a new developer
+The entry point is
+[ScoreKeeperPlugin](../src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/ScoreKeeperPlugin.java),
+declared in [plugin.yml](../src/main/resources/plugin.yml) under the plugin ID
+`ScoreKeeper`. Compilation targets Paper `26.2.build.129-stable` on Java 25;
+supported server versions are Paper 26.2 and 26.3.
 
-ScoreKeeper is almost entirely **command-driven**. It registers **no Bukkit event
-listeners**, declares **no `@EventHandler` methods, no `Listener` implementations,
-and calls `getPluginManager().registerEvents(...)` nowhere**. It also schedules
-**no timed tasks** (no `BukkitScheduler`/`BukkitRunnable`/tick logic).
+| Trigger | Handler / effect |
+| --- | --- |
+| Plugin enable | Register eight executors, initialize `points`, load scores/archives, check existing runs, schedule synchronous checks every 20 ticks |
+| Scheduled check | `checkHighScoreRuns`: finish expired duration runs or runs whose target is reached |
+| Plugin disable | Serialize bucket definitions, scores, assignments, active runs/snapshots, and archives to two YAML files |
+| Minecraft join/quit/death/kill | No built-in listeners or automatic score awards |
+| Companion-plugin API call | Perform requested score/bucket/archive/run operation |
 
-The only things that touch score state are **five console/chat commands**
-(`score-get`, `score-add`, `score-subtract`, `score-reset`, `score-archive`).
-Score state lives in an **in-memory `HashMap<UUID, Integer>`** and is **not
-persisted** — `onEnable`/`onDisable` have `TODO` stubs, so data is lost on restart.
+There are no `Listener` implementations, `@EventHandler` methods, custom scoring
+events, or event registrations. The scheduler manages runs, not gameplay scoring.
+Expired saved runs finish during enable; `until-disabled` runs persist and resume.
 
-There is a **`highscore` / high-score table in the project name and the task
-prompt, but no such command or logic exists yet** — it is unimplemented.
+## Command wiring
 
----
+Each manifest command is explicitly wired in `onEnable` using `getCommand` and
+`setExecutor`. A missing declaration fails startup via `Objects.requireNonNull`.
 
-## 2. Event listeners (Bukkit/Adventure)
+Handlers are in [commands/](../src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/commands/).
 
-**None.** The plugin listens to no server events. Confirmed by absence of any of:
-`@EventHandler`, `implements Listener`, `registerEvents(`, `PlayerJoinEvent`,
-`PlayerQuitEvent`, `PlayerDeathEvent`, or any other event import/registration.
+| Command | Executor | Delegation / effect | Permission |
+| --- | --- | --- | --- |
+| `score-get` | `ScoreGetCommand` | `getScore`, active bucket, lazy entry creation | None |
+| `score-add` | `ScoreAddCommand` | `addScore`, signed integer addition | None |
+| `score-subtract` | `ScoreSubtractCommand` | `subtractScore`, signed integer subtraction | None |
+| `score-reset` | `ScoreResetCommand` | `resetScore`, active bucket initial value | None |
+| `score-archive` | `ScoreArchiveCommand` | `archivePlayerScore`, `archiveBucketScores`, or `archiveAllScores` | `scorekeeper.admin` |
+| `score-archive-list` | `ScoreArchiveListCommand` | `getScoreArchives` or `getScoreArchive` | None |
+| `score-bucket` | `ScoreBucketCommand` | View/select own bucket, create bucket, switch another/all players | Admin for create/other/all; none for self |
+| `score-run` | `ScoreRunCommand` | Start target/timed/manual run, or stop it | `scorekeeper.admin` |
 
-| Server event | Handler | Effect on score data |
-|---|---|---|
-| PlayerJoin | *none* | none |
-| PlayerQuit | *none* | none |
-| PlayerDeath | *none* | none |
-| (all other Bukkit events) | *none* | none |
-| Custom/plugin-injected events | *none* | none |
+`scorekeeper.admin` defaults to operators in the manifest. Guards are implemented
+inside selected executors, not per-command manifest permission fields. Public API
+calls do not enforce sender permissions; the caller must enforce its own policy.
 
-**Implication:** nothing about a player's score changes as a result of gameplay
-events (joining, quitting, dying, scoring points in-game, etc.). The only way
-score data changes is through the commands in §3.
+Named player targets use Paper's `getPlayerExact` and must be online. Players
+may omit the optional name to target themselves; non-player senders have no
+self context. Console/RCON can use archive `all`/`bucket` forms without a player.
+Bucket IDs are case-sensitive even though command keywords such as `all` are not.
 
----
+Parse/validation failures are returned as Adventure usage/error messages.
+Handlers consume commands by returning `true`. Score mutation commands rely on
+bucket/run reporting instead of unconditional success messages; the default
+`none` policy can make a successful mutation silent.
 
-## 3. Command registrations & permissions
+## Companion-plugin integration
 
-Commands are declared in `src/main/resources/plugin.yml` (no `aliases`, no
-`permissions:` block, and no per-command `permission:` — so **every command is
-available to every sender with no permission gating**). Each is wired to an
-executor in `ScoreKeeperPlugin.onEnable()`.
+Score Keeper declares no plugin dependencies of its own. A companion that requires
+it should compile against the matching jar as a provided/compile-only dependency,
+and declare `depend: [ScoreKeeper]` in its own Bukkit-style manifest so it loads
+after Score Keeper. For optional integration, use `softdepend` and handle absence
+or disabled state explicitly.
 
-Argument-resolution idiom shared by every handler:
-`boolean rcon = !(sender instanceof Player);` — an RCON caller has no self
-context, so the "target = self" shortcut is unavailable and a `<playerName>`
-must be supplied.
+There is no ServicesManager registration or standalone API module. Obtain the
+enabled plugin by ID and check its type, for example during the companion's enable:
 
-`<playerName>` is resolved with `server.getPlayerExact(name)` — an **exact,
-case-sensitive lookup of currently-online players only**. Score operations
-therefore apply to **online players**, and an unknown/offline name yields a
-"Can't find a player with that name" error (except where noted).
+```java
+Plugin candidate = getServer().getPluginManager().getPlugin("ScoreKeeper");
+if (!(candidate instanceof ScoreKeeperPlugin scoreKeeper) || !candidate.isEnabled()) {
+  getLogger().severe("Score Keeper is required but is not enabled.");
+  getServer().getPluginManager().disablePlugin(this);
+  return;
+}
+```
 
-### Reference table — command → handler class → effect on score data
+Imports for this example are `org.bukkit.plugin.Plugin` and
+`com.majinnaibu.minecraft.plugins.scorekeeper.ScoreKeeperPlugin`. Keep the
+reference for your integration lifecycle, not as a global singleton.
+Do not shade a second copy of Score Keeper into the companion jar.
 
-| Trigger (command) | Usage | Handler class | Delegates to | Effect on score data |
-|---|---|---|---|---|
-| `score-get` | `/score-get [player]` | `ScoreGetCommand` | `ScoreKeeperPlugin.getScore(Player)` → `getPlayerScore` | **Read only.** Returns the player's current score. Side effect: lazily registers the player at `0` if unseen. No persistent change. |
-| `score-add` | `/score-add [player] <amount>` | `ScoreAddCommand` | `ScoreKeeperPlugin.addScore(Player,int)` | `score = old + amount` (integer `amount` in `[1..]`). |
-| `score-subtract` | `/score-subtract [player] <amount>` | `ScoreSubtractCommand` | `ScoreKeeperPlugin.subtractScore(Player,int)` | `score = old - amount` (can go negative). |
-| `score-reset` | `/score-reset [player]` | `ScoreResetCommand` | `ScoreKeeperPlugin.resetScore(Player)` | `score = 0` (writes 0; key created if absent). |
-| `score-archive` | `/score-archive [player]` | `ScoreArchiveCommand` | *nothing* | **No state change.** Handler prints `"archive command unimplemented"`. It does **not** call `ScoreKeeperPlugin.archiveScore(...)` — see §5. |
+### Public operations
 
-### Command behaviour details
+| Area | Methods |
+| --- | --- |
+| Bucket definition | `createBucket(id, singular, plural, initialValue[, ScoreReporting])`, `getBucket(id)`, `getBuckets()` |
+| Active selection | `getPlayerBucket(Player)`, `switchPlayerBucket(Player, id)`, `switchAllPlayers(id)` |
+| Score CRUD | `getScore(Player[, id])`, `setScore(Player[, id], score)`, `addScore(Player[, id], amount)`, `subtractScore(Player[, id], amount)`, `resetScore(Player[, id])` |
+| Archives | `archivePlayerScore(Player)`, `archiveBucketScores(id)`, `archiveAllScores()`, `getScoreArchives()`, `getScoreArchive(archiveId)` |
+| Compatibility wrapper | `archiveScore(Player)` delegates to player archive creation but discards the returned ID |
+| Runs | `startTargetScoreRun(id, topN, resetScores, targetScore)`, `startTimedScoreRun(id, topN, resetScores, Duration)`, `startUntilDisabledScoreRun(id, topN, resetScores)`, `stopHighScoreRun(id)`, `hasActiveHighScoreRun(id)` |
+| Messaging/logging | `sendMessage(CommandSender, Component)`, `logInfo`, `logWarning`, `logError` |
 
-- **Sender vs. target.** Single-arg form means "operate on the invoking player"
-  (`split.length == 1` → `targetPlayer = sender`). Two-arg form means
-  `<playerName> <amount>` (add/subtract) or `<playerName>` (get/reset). For an
-  RCON sender, the single-arg form is treated as missing a target and prints
-  usage instead.
-- **Amount parsing.** `score-add`/`score-subtract` require an integer
-  `amount`; a non-integer prints `"amount must be an integer"`.
-- **Error/usage messaging.** `echoError` (red) and `echoUsage` (colour-coded)
-  differ between player and RCON call sites (`/score-add` vs `score-add`).
-  All handlers `return true` (command handled).
-- **Permissions.** None declared → no operator/permission requirement; any
-  player or RCON can run them.
+The bracket notation above describes overloads, not literal Java syntax.
+`getBucket` and `getScoreArchive` return null when unknown; mutating/score methods
+validate bucket existence and throw `IllegalArgumentException` for invalid
+operations. Do not swallow errors or report success after a failure.
+Bucket maps and archive snapshots exposed by getters are immutable copies/views.
 
----
+Example explicit-bucket award, with imports for `ScoreReporting` and `Player`:
 
-## 4. Scheduled tasks / tick-based logic
+```java
+if (scoreKeeper.getBucket("event") == null) {
+  scoreKeeper.createBucket("event", "point", "points", 0, ScoreReporting.PLAYER);
+}
+scoreKeeper.addScore(player, "event", 10);
+```
 
-**None.** Confirmed by absence of `getScheduler()`, `runTask`,
-`BukkitRunnable`, `BukkitTask`, `scheduleSync*`, or any periodic/repeating
-logic. ScoreKeeper runs no background or tick-driven work.
+Only create a shared bucket if its existing definition meets your integration's
+requirements; duplicate creation throws. Explicit-bucket scoring does not switch
+the player's active bucket.
 
----
+### Threading and ownership
 
-## 5. Inter-plugin dependencies & API exposure
+All calls touching state, players, or reporting must execute on Paper's main
+server thread. The plugin's `LinkedHashMap` state and read-modify-write operations
+are not synchronized. Marshal asynchronous event/work results to a synchronous
+Paper task before calling this API. Score Keeper does not provide Folia/region
+scheduler support.
 
-- **Declared dependencies:** plugin.yml has no `depend`, `softdepend`, `load`,
-  or `load-before` → **no declared inter-plugin coupling**.
-- **Build dependency:** the only third-party dependency is
-  `io.papermc.paper:paper-api` (marked `compileOnly`, and explicitly ignored as a
-  snapshot by the release plugin). No other plugin/API is referenced.
-- **Public API surface.** `ScoreKeeperPlugin` is a plain `JavaPlugin` exposing
-  `public` methods that other plugins *could* call if they hold a reference:
-  - `void addScore(Player, int)`
-  - `void subtractScore(Player, int)`
-  - `int getScore(Player)`
-  - `void setScore(Player, int)` — **public but used by no command** (internal
-    write path; the only writer not reachable via a command).
-  - `void resetScore(Player)`
-  - `void archiveScore(Player)` — **public but called by nothing**; it only logs
-    a warning. The `/score-archive` command does **not** invoke it.
-  - `void sendMessage(CommandSender, Component)`, `logInfo/logWarning/logError`
-- **No formal service registration.** There is no `registerService`/`asService`
-  (ServiceLoader), no dedicated API artifact, and no `api:` block in plugin.yml.
-  Exposure is by **public method surface only** — informal and not discoverable
-  by other plugins.
-- **Persistence (unimplemented).** `onEnable` logs a warning that load-from-file
-  is unimplemented; `onDisable` logs that save-to-file is unimplemented. The
-  `HashMap<UUID,Integer>` is the sole state store and is **forgotten on restart**.
+Do not mutate private maps or write the YAML files from another plugin.
+Use the API so reporting, validation, target completion, and snapshots remain
+consistent. API calls change in-memory state; durability is deferred until
+Score Keeper disables successfully.
 
----
+## Verification
 
-## 6. Lifecycle
-
-| Hook | What it does |
-|---|---|
-| `onEnable()` | Wires the five `score-*` command executors; logs the "load not implemented" warning and an enable log line. |
-| `onDisable()` | Logs the "save not implemented" warning. **All in-memory scores are lost on shutdown.** |
-
----
-
-## 7. State model (quick reference)
-
-- **Store:** `private HashMap<UUID,Integer> _playerScores` on `ScoreKeeperPlugin`
-  (one map field for the whole plugin).
-- **Keying:** by `Player.getUniqueId()` (UUID), so scores are per-player and
-  survive name changes *within a single server run*; lost on restart.
-- **Lazy init:** any read (including `get`/`score-get`) auto-creates the key at `0`.
-- **Writers:** `addScore`, `subtractScore`, `resetScore`, `setScore`, all funneled
-  through `setPlayerScore(player, value)`.
-- **Concurrency:** plain `HashMap`; safe today only because command dispatch
-  runs on the server's main thread. Not thread-safe for off-thread use.
-
----
-
-## 8. "Which server trigger causes which state change" — summary
-
-| Trigger | State change |
-|---|---|
-| `/score-add [player] <amount>` | `_playerScores[uuid] += amount` |
-| `/score-subtract [player] <amount>` | `_playerScores[uuid] -= amount` |
-| `/score-reset [player]` | `_playerScores[uuid] = 0` |
-| `/score-get [player]` | none (reads; lazily registers at 0) |
-| `/score-archive [player]` | none (not implemented) |
-| Any Minecraft/Bukkit event (join/quit/death/etc.) | **none — no listeners exist** |
-| Server tick / scheduled task | **none — no scheduler exists** |
-| Server enable | no data change (registration + log only) |
-| Server disable | in-memory scores discarded (no persistence) |
-| `addScore`/`subtractScore`/`setScore`/`archiveScore` via the public API | same table where called; only reachable by code holding a plugin reference, not by in-game events or commands (except add/subtract/reset which do have commands) |
+There is currently no automated plugin harness or real-server test task.
+Validate load ordering, command dispatch, messages, run scheduler behavior, and
+clean-restart persistence on disposable Paper servers using
+[human-tests.md](human-tests.md). Do not assume a successful compilation verifies
+companion load order or runtime API compatibility.

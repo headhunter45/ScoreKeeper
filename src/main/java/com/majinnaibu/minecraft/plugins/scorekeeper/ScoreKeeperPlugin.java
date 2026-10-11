@@ -56,10 +56,10 @@ public class ScoreKeeperPlugin extends JavaPlugin {
   private final Map<String, HighScoreRun> _highScoreRuns = new LinkedHashMap<>();
   private final Map<String, ScoreArchive> _scoreArchives = new LinkedHashMap<>();
   private String _defaultBucketId = "points";
-  public final String _logPrefix = "[ScoreKeeper] ";
+  public final String _logPrefix = "[Score Keeper] ";
   public final Component _messagePrefix =
       Component.text("[")
-          .append(Component.text("ScoreKeeper").color(NamedTextColor.AQUA))
+          .append(Component.text("Score Keeper").color(NamedTextColor.AQUA))
           .append(Component.text("] ").color(NamedTextColor.WHITE));
 
   @Override

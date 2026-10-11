@@ -41,11 +41,11 @@ load_project_env
 # Required env:
 #   MODRINTH_TOKEN
 #   MODRINTH_PROJECT_ID (project ID or slug)
-#   MODRINTH_GAME_VERSIONS (optional comma-separated list; defaults to 1.21 through 1.21.7)
+#   MODRINTH_GAME_VERSIONS (optional comma-separated list; defaults to 26.2,26.3)
 #   MODRINTH_LOADERS (optional, comma-separated, default paper)
 #   MODRINTH_CHANGELOG (optional)
 # Optional:
-#   MODRINTH_DEPENDENCIES (optional JSON array or a single JSON string)
+#   MODRINTH_DEPENDENCIES (optional JSON array)
 #   MODRINTH_FILE (optional path to the jar; defaults to build/libs/*.jar)
 
 MODRINTH_TOKEN="${MODRINTH_TOKEN:-}"
@@ -92,7 +92,7 @@ case "$MODRINTH_VERSION_TYPE" in
   release|beta|alpha) ;;
   *) echo "Error: MODRINTH_VERSION_TYPE must be release, beta, or alpha." >&2; exit 1 ;;
 esac
-MODRINTH_VERSION_NAME="ScoreKeeper $MODRINTH_VERSION"
+MODRINTH_VERSION_NAME="Score Keeper $MODRINTH_VERSION"
 
 if [[ -n "$MODRINTH_FILE" && "$MODRINTH_FILE" != /* ]]; then
   MODRINTH_FILE="$PROJECT_ROOT/$MODRINTH_FILE"
