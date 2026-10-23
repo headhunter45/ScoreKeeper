@@ -1,0 +1,168 @@
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Git tag to release (e.g., v1.0.0)'
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  prepare-release:
+    name: Validate Tag & Prepare Release Branch
+    runs-on: ubuntu-latest
+    outputs:
+      tag_commit: ${{ steps.validate.outputs.tag_commit }}
+      tag_name: ${{ steps.validate.outputs.tag_name }}
+      release_branch: ${{ steps.validate.outputs.release_branch }}
+      version_name: ${{ steps.validate.outputs.version_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure Git identity
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Validate Tag, Develop, Main, and Create Release Branch
+        id: validate
+        run: |
+          TAG="${{ github.event.inputs.tag }}"
+          echo "Target tag: $TAG"
+
+          # Fetch remote branches and tags
+          git fetch origin develop:develop main:main --tags
+
+          # 1. Verify tag exists
+          if ! git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            echo "::error::Tag '$TAG' does not exist in the repository."
+            exit 1
+          fi
+
+          TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+          echo "Tag '$TAG' points to commit: $TAG_COMMIT"
+
+          # 2. Verify tag commit is in develop branch
+          if ! git merge-base --is-ancestor "$TAG_COMMIT" origin/develop; then
+            echo "::error::Tag '$TAG' (commit $TAG_COMMIT) is not in the develop branch."
+            exit 1
+          fi
+          echo "Confirmed: Tag '$TAG' is in develop branch."
+
+          # 3. Verify tag commit is in main, or fast-forward merge it to main
+          if git merge-base --is-ancestor "$TAG_COMMIT" origin/main; then
+            echo "Confirmed: Tag '$TAG' is already in main branch."
+          else
+            echo "Tag '$TAG' is not in main. Attempting fast-forward only merge..."
+            git checkout main
+            if ! git merge --ff-only "$TAG_COMMIT"; then
+              echo "::error::Tag '$TAG' cannot be fast-forward merged into main."
+              exit 1
+            fi
+            git push origin main
+            echo "Successfully fast-forward merged '$TAG' into main."
+          fi
+
+          # 4. Create and push the release/v* branch from the tag commit
+          RELEASE_BRANCH="release/${TAG}"
+          echo "Creating release branch '$RELEASE_BRANCH' from commit $TAG_COMMIT..."
+          git checkout -B "$RELEASE_BRANCH" "$TAG_COMMIT"
+          git push -u origin "$RELEASE_BRANCH" --force
+
+          VERSION_NAME="${TAG#v}"
+
+          echo "tag_commit=$TAG_COMMIT" >> $GITHUB_OUTPUT
+          echo "tag_name=$TAG" >> $GITHUB_OUTPUT
+          echo "release_branch=$RELEASE_BRANCH" >> $GITHUB_OUTPUT
+          echo "version_name=$VERSION_NAME" >> $GITHUB_OUTPUT
+
+  scorekeeper-release:
+    name: Build, Test & Publish Release
+    needs: prepare-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.prepare-release.outputs.tag_commit }}
+          fetch-depth: 0
+
+      - name: Ensure tag ref is checked out
+        run: |
+          git checkout -q "refs/tags/${{ needs.prepare-release.outputs.tag_name }}"
+
+      - name: Validate Modrinth Credentials
+        id: check_credentials
+        run: |
+          if [ -z "${{ secrets.MODRINTH_TOKEN }}" ]; then
+            echo "::warning::Modrinth release token was not provided. Release will not be published to Modrinth."
+            echo "::error::Missing MODRINTH_TOKEN secret. Please configure MODRINTH_TOKEN in repository secrets."
+            exit 1
+          fi
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '25'
+
+      - name: Setup Gradle 9.8.0
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.8.0'
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
+
+      - name: Run Unit Tests
+        run: ./gradlew test
+
+      - name: Upload Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScoreKeeper-test-report-${{ needs.prepare-release.outputs.tag_name }}
+          path: |
+            build/reports/tests/test
+            build/test-results/test
+          if-no-files-found: ignore
+          retention-days: 14
+
+      - name: Build ScoreKeeper Plugin Jar
+        run: ./tools/build-plugin.sh
+
+      - name: Upload Release Jar
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScoreKeeper-${{ needs.prepare-release.outputs.version_name }}
+          path: build/libs/*.jar
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish to Modrinth & Update Description
+        env:
+          MODRINTH_TOKEN: ${{ secrets.MODRINTH_TOKEN }}
+          MODRINTH_VERSION: ${{ needs.prepare-release.outputs.version_name }}
+          TAG: ${{ needs.prepare-release.outputs.tag_name }}
+        run: |
+          chmod +x ./tools/publish-modrinth.sh
+          ./tools/publish-modrinth.sh
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.prepare-release.outputs.tag_name }}
+          name: ScoreKeeper ${{ needs.prepare-release.outputs.tag_name }}
+          files: build/libs/*.jar
+          generate_release_notes: true

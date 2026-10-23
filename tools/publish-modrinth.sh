@@ -4,10 +4,6 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-if [[ ! -r "$PROJECT_ROOT/.env" ]]; then
-  echo "Error: $PROJECT_ROOT/.env is missing or unreadable. Copy .env.example to .env and set its values." >&2
-  exit 1
-fi
 load_project_env() {
   local env_line env_key env_value first_char last_char
   while IFS= read -r env_line || [[ -n "$env_line" ]]; do
@@ -36,23 +32,27 @@ load_project_env() {
     fi
   done < "$PROJECT_ROOT/.env"
 }
-load_project_env
 
-# Required env:
-#   MODRINTH_TOKEN
-#   MODRINTH_PROJECT_ID (project ID or slug)
-#   MODRINTH_GAME_VERSIONS (optional comma-separated list; defaults to 26.2,26.3)
-#   MODRINTH_LOADERS (optional, comma-separated, default paper)
-#   MODRINTH_CHANGELOG (optional)
-# Optional:
-#   MODRINTH_DEPENDENCIES (optional JSON array)
-#   MODRINTH_FILE (optional path to the jar; defaults to build/libs/*.jar)
+if [[ -r "$PROJECT_ROOT/.env" ]]; then
+  load_project_env
+elif [[ -z "${MODRINTH_TOKEN:-}" ]]; then
+  echo "Error: $PROJECT_ROOT/.env is missing or unreadable and MODRINTH_TOKEN is not set. Copy .env.example to .env and set its values." >&2
+  exit 1
+fi
 
 MODRINTH_TOKEN="${MODRINTH_TOKEN:-}"
 MODRINTH_PROJECT_ID="${MODRINTH_PROJECT_ID:-5NYwxysp}"
+MODRINTH_VERSION="${MODRINTH_VERSION:-${VERSION:-}}"
+if [[ -z "$MODRINTH_VERSION" ]]; then
+  MODRINTH_VERSION=$(
+    "$PROJECT_ROOT/gradlew" -q -p "$PROJECT_ROOT" properties --property version \
+      | sed -n 's/^version: //p'
+  )
+fi
+
 generate_changelog() {
   local current_tag previous_tag range commits
-  current_tag=$(git -C "$PROJECT_ROOT" describe --tags --exact-match HEAD 2>/dev/null || true)
+  current_tag="${TAG:-$(git -C "$PROJECT_ROOT" describe --tags --exact-match HEAD 2>/dev/null || true)}"
   if [[ -n "$current_tag" ]]; then
     previous_tag=$(git -C "$PROJECT_ROOT" describe --tags --abbrev=0 "${current_tag}^" 2>/dev/null || true)
     range="${previous_tag:+$previous_tag..}$current_tag"
@@ -66,17 +66,19 @@ generate_changelog() {
   fi
   printf '%s\n\n%s\n' "## What's Changed" "$commits"
 }
+
 MODRINTH_CHANGELOG="${MODRINTH_CHANGELOG:-$(generate_changelog)}"
 MODRINTH_GAME_VERSIONS="${MODRINTH_GAME_VERSIONS:-26.2,26.3}"
 MODRINTH_LOADERS="${MODRINTH_LOADERS:-paper}"
 MODRINTH_VERSION_TYPE="${MODRINTH_VERSION_TYPE:-}"
 MODRINTH_FILE="${MODRINTH_FILE:-}"
 MODRINTH_DEPENDENCIES="${MODRINTH_DEPENDENCIES:-}"
+MODRINTH_SYNC_BODY="${MODRINTH_SYNC_BODY:-true}"
+MODRINTH_DESCRIPTION_FILE="${MODRINTH_DESCRIPTION_FILE:-$PROJECT_ROOT/docs/modrinth-description.md}"
+if [[ ! -f "$MODRINTH_DESCRIPTION_FILE" ]]; then
+  MODRINTH_DESCRIPTION_FILE="$PROJECT_ROOT/README.md"
+fi
 
-MODRINTH_VERSION=$(
-  "$PROJECT_ROOT/gradlew" -q -p "$PROJECT_ROOT" properties --property version \
-    | sed -n 's/^version: //p'
-)
 if [[ -z "$MODRINTH_VERSION" ]]; then
   echo "Error: could not determine the project version from Gradle." >&2
   exit 1
@@ -99,9 +101,10 @@ if [[ -n "$MODRINTH_FILE" && "$MODRINTH_FILE" != /* ]]; then
 fi
 
 if [[ -z "$MODRINTH_TOKEN" ]]; then
-  echo "Error: MODRINTH_TOKEN is not set in $PROJECT_ROOT/.env" >&2
+  echo "Error: MODRINTH_TOKEN is not set (check $PROJECT_ROOT/.env or environment variable)." >&2
   exit 1
 fi
+
 if [[ -z "$MODRINTH_FILE" ]]; then
   MODRINTH_FILE=$(ls -t "$PROJECT_ROOT"/build/libs/*.jar 2>/dev/null | grep -v -- '-all\.jar$' | head -n1 || true)
 fi
@@ -167,3 +170,26 @@ if [[ "$HTTP_STATUS" != 2?? ]]; then
   exit 1
 fi
 printf '%s\n' "$HTTP_BODY" | jq .
+
+if [[ "$MODRINTH_SYNC_BODY" == "true" && -f "$MODRINTH_DESCRIPTION_FILE" ]]; then
+  echo "Syncing project description to Modrinth from $MODRINTH_DESCRIPTION_FILE..."
+  BODY_CONTENT=$(cat "$MODRINTH_DESCRIPTION_FILE")
+  PATCH_DATA=$(jq -cn --arg body "$BODY_CONTENT" '{body: $body}')
+
+  PATCH_RESPONSE=$(curl -sS -w $'\n%{http_code}' \
+    -X PATCH "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT_ID" \
+    -H "Authorization: $MODRINTH_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d "$PATCH_DATA")
+
+  PATCH_STATUS="${PATCH_RESPONSE##*$'\n'}"
+  PATCH_BODY="${PATCH_RESPONSE%$'\n'*}"
+  if [[ "$PATCH_STATUS" != 2?? ]]; then
+    echo "Warning: Modrinth project description update returned HTTP $PATCH_STATUS:" >&2
+    if ! printf '%s\n' "$PATCH_BODY" | jq -r '.description // .error // .' >&2; then
+      printf '%s\n' "$PATCH_BODY" >&2
+    fi
+  else
+    echo "Successfully updated Modrinth project description."
+  fi
+fi

@@ -156,9 +156,10 @@ affected scenarios in [human-tests.md](docs/human-tests.md). Documentation-only
 changes need link/metadata checks, not a Paper server.
 
 CI in [gradle.yml](.github/workflows/gradle.yml) runs for pushes and pull requests
-to `develop`. It invokes `test`, builds with the Bash helper, and uploads jar
-artifacts (test reports only if present). It does not start Paper, publish a
-release, or verify the two-version runtime compatibility claim.
+to `main` and `develop`, and any `v*` tags. Manual releases are handled via
+[release.yml](.github/workflows/release.yml). It invokes `test`, builds with the
+Bash helper, and uploads jar artifacts (test reports only if present). It does
+not start Paper or verify the two-version runtime compatibility claim.
 
 ## Local Paper server: macOS, Linux, or WSL
 
