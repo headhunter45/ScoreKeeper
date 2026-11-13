@@ -5,6 +5,8 @@ competitions, or other server-side scoring systems, and integrate it with other
 plugins through the public API. Points are awarded by commands or companion
 plugins, not by built-in gameplay event listeners.
 
+**Paper only.** This plugin uses Paper-specific APIs and does not run on Spigot or Bukkit.
+
 ## Installation
 
 Requires Java 25 and Paper 26.2 or 26.3. Stop your server cleanly, back up plugin
