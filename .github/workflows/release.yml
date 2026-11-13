@@ -158,12 +158,10 @@ jobs:
 
       - name: Prepare release notes from changelog.md
         run: |
-          # The checkout is throwaway: only this build sees the rewritten header.
           header_version=$(./tools/changelog.sh get-version 2>/dev/null || true)
           if [[ "$header_version" != "$VERSION" ]]; then
-            echo "::warning title=changelog.md header was '${header_version:-missing}'::Using ${VERSION} for the release, as tagged."
+            echo "::warning title=changelog.md header says '${header_version:-missing}'::Releasing ${VERSION}, as tagged. Only the notes under the header are used."
           fi
-          ./tools/changelog.sh set-version "$VERSION"
           if ! ./tools/changelog.sh notes > "$RUNNER_TEMP/release-notes.md" 2> "$RUNNER_TEMP/notes-error.txt"; then
             error=$(cat "$RUNNER_TEMP/notes-error.txt")
             echo "::error title=No release notes for ${TAG}::${error}"
