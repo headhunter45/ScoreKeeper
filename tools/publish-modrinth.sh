@@ -115,6 +115,13 @@ if [[ "$JAR_VERSION" != "$MODRINTH_VERSION" ]]; then
   exit 1
 fi
 
+# The version API needs the base62 project ID; MODRINTH_PROJECT_ID may also be a slug, so resolve it.
+if ! RESOLVED_PROJECT_ID=$(curl -fsS -H "Authorization: $MODRINTH_TOKEN" "https://api.modrinth.com/v2/project/$MODRINTH_PROJECT_ID" | jq -er '.id'); then
+  echo "Error: could not look up the Modrinth project '$MODRINTH_PROJECT_ID'. Check MODRINTH_PROJECT_ID and that the token can read it." >&2
+  exit 1
+fi
+MODRINTH_PROJECT_ID="$RESOLVED_PROJECT_ID"
+
 csv_to_json_array() {
   jq -cn --arg csv "$1" '$csv | split(",") | map(gsub("^\\s+|\\s+$"; "")) | map(select(length > 0))'
 }
