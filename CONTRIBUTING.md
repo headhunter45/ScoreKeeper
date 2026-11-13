@@ -275,11 +275,11 @@ are computed by [tools/compute-version.sh](tools/compute-version.sh). Gradle (an
 - With no tags at all the version is `0.0.1-dev`.
 
 **[changelog.md](changelog.md)** holds the release notes for the next release. Its
-first-level header names the version (`# Changelog for v0.2.3`). Release builds
-rewrite that header to the tagged version in their throwaway checkout, and use
-everything under it (HTML comments excluded) as the GitHub and Modrinth release
-notes; a release with empty notes is refused. [tools/changelog.sh](tools/changelog.sh)
-does the header rewrite and note extraction.
+first-level header names the version (`# Changelog for v0.2.3`). The tag
+decides the released version (a release build warns if the header names a different
+one), and everything under the header (HTML comments excluded) becomes the GitHub
+and Modrinth release notes; a release with empty notes is refused.
+[tools/changelog.sh](tools/changelog.sh) reads the header and extracts the notes.
 
 **CI** ([gradle.yml](.github/workflows/gradle.yml)) runs the `Build and Test` job
 for pushes and pull requests to `main` and `develop` and for `v*` tags. Make

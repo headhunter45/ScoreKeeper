@@ -7,7 +7,6 @@
 #
 # Usage:
 #   tools/changelog.sh get-version         print the version named in the header
-#   tools/changelog.sh set-version <ver>   rewrite the header for <ver> (in place)
 #   tools/changelog.sh notes               print the release notes (no header);
 #                                          fails if there are none
 # CHANGELOG_FILE overrides the file (default: <project root>/changelog.md).
@@ -30,19 +29,6 @@ get_version() {
   version="$(printf '%s\n' "$header" | sed -n -E 's/^# +[Cc]hangelog for +v?([^ ]+) *$/\1/p')"
   [[ -n "$version" ]] || die "header '$header' does not look like '# Changelog for v<version>'."
   printf '%s\n' "$version"
-}
-
-set_version() {
-  local version="${1#v}" tmp
-  [[ -n "$version" ]] || die "usage: changelog.sh set-version <version>"
-  tmp="$(mktemp)"
-  awk -v header="# Changelog for v$version" '
-    !done && /^# / { print header; done = 1; next }
-    { print }
-    END { if (!done) exit 3 }' "$CHANGELOG_FILE" > "$tmp" || {
-      rm -f "$tmp"; die "$CHANGELOG_FILE has no first-level header to update."; }
-  cat "$tmp" > "$CHANGELOG_FILE"
-  rm -f "$tmp"
 }
 
 notes() {
@@ -77,8 +63,7 @@ notes() {
 
 case "${1:-}" in
   get-version) get_version ;;
-  set-version) shift; set_version "${1:-}" ;;
   notes) notes ;;
-  -h|--help|"") sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; [[ -n "${1:-}" ]] ;;
+  -h|--help|"") sed -n '2,12p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; [[ -n "${1:-}" ]] ;;
   *) die "unknown command '$1' (try --help)" ;;
 esac
