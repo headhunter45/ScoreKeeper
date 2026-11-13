@@ -1,5 +1,8 @@
 name: Java CI with Gradle
 
+# The "Build and Test" job below is the status check to require in branch
+# protection / rulesets for main and develop. release.yml looks the same check up
+# by name, so keep the two in sync.
 on:
   push:
     branches: [ "main", "develop" ]
@@ -7,16 +10,52 @@ on:
   pull_request:
     branches: [ "main", "develop" ]
 
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
 jobs:
   build:
+    name: Build and Test
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.project_info.outputs.version }}
+      artifact: ${{ steps.project_info.outputs.artifact }}
+      publish_release: ${{ steps.project_info.outputs.publish_release }}
 
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0
+          fetch-depth: 0 # tags are needed to compute the version
+
+      - name: Compute project version
+        id: project_info
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          VERSION=$(./tools/compute-version.sh --explain)
+          echo "Project version: $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "artifact=${REPO_NAME}-${VERSION}" >> "$GITHUB_OUTPUT"
+
+          # Only a pushed release tag (v1.2.3 or v1.2.3-rc1, never v*-dev) gets a draft release.
+          PUBLISH=false
+          if [[ "$REF_TYPE" == "tag" ]]; then
+            if [[ "$VERSION" == *-dev ]]; then
+              echo "::notice::$REF_NAME is a development tag; no draft release will be created."
+            elif [[ "$REF_NAME" != "v$VERSION" ]]; then
+              echo "::notice::This commit's version is $VERSION (from another tag), not ${REF_NAME#v}; the run for tag v$VERSION creates that draft release."
+            else
+              PUBLISH=true
+            fi
+          fi
+          echo "publish_release=$PUBLISH" >> "$GITHUB_OUTPUT"
 
       - name: Set up JDK 25
         uses: actions/setup-java@v6
@@ -25,7 +64,7 @@ jobs:
           distribution: 'temurin'
 
       - name: Setup Gradle 9.8.0
-        uses: gradle/actions/setup-gradle@v5
+        uses: gradle/actions/setup-gradle@v6
         with:
           gradle-version: '9.8.0'
           cache-read-only: ${{ github.ref != 'refs/heads/develop' && github.ref != 'refs/heads/main' }}
@@ -37,7 +76,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ScoreKeeper-test-report
+          name: ${{ github.event.repository.name }}-test-report
           path: |
             build/reports/tests/test
             build/test-results/test
@@ -47,16 +86,92 @@ jobs:
       - name: Build with Gradle Wrapper
         run: ./tools/build-plugin.sh
 
-      - name: Extract Project Version
-        id: project_info
+      - name: Verify jar version matches the computed version
+        env:
+          VERSION: ${{ steps.project_info.outputs.version }}
         run: |
-          VERSION=$(./gradlew properties --no-daemon -q | awk -F ': ' '$1 == "version" {print $2}')
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          checked=0
+          for jar in build/libs/*.jar; do
+            jar_version=$(unzip -p "$jar" plugin.yml 2>/dev/null | sed -n 's/^version: *//p' | tr -d "'\"" | head -n1 || true)
+            [[ -n "$jar_version" ]] || continue
+            checked=1
+            if [[ "$jar_version" != "$VERSION" ]]; then
+              echo "::error title=Version mismatch::$jar has plugin.yml version '$jar_version' but tools/compute-version.sh says '$VERSION'."
+              exit 1
+            fi
+          done
+          if [[ "$checked" != 1 ]]; then
+            echo "::error title=No plugin jar::build/libs contains no jar with a plugin.yml."
+            exit 1
+          fi
 
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v7
         with:
-          name: ScoreKeeper-${{ steps.project_info.outputs.version }}
+          name: ${{ steps.project_info.outputs.artifact }}
           path: build/libs/*.jar
           if-no-files-found: error
           retention-days: 14
+
+  # Pushing a release tag (v*, but not v*-dev) creates or updates a draft GitHub
+  # release holding the jar built above and the notes from changelog.md.
+  # release.yml publishes it later.
+  draft-release:
+    name: Draft GitHub Release
+    needs: build
+    if: needs.build.outputs.publish_release == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download built jar
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.build.outputs.artifact }}
+          path: dist
+
+      - name: Skip if the release is already published
+        id: existing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          state=$(gh api --paginate "repos/$GITHUB_REPOSITORY/releases?per_page=100" \
+            | jq -r --arg tag "$TAG" '.[] | select(.tag_name == $tag) | if .draft then "draft" else "published" end' | head -n1)
+          echo "Existing release for $TAG: ${state:-none}"
+          echo "state=${state:-none}" >> "$GITHUB_OUTPUT"
+          if [[ "$state" == "published" ]]; then
+            echo "::notice::Release $TAG is already published; leaving it unchanged."
+          fi
+
+      - name: Build release notes from changelog.md
+        if: steps.existing.outputs.state != 'published'
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          header_version=$(./tools/changelog.sh get-version 2>/dev/null || true)
+          if [[ "$header_version" != "$VERSION" ]]; then
+            echo "::warning title=changelog.md header was '${header_version:-missing}'::Using ${VERSION} for the release, as tagged."
+          fi
+          ./tools/changelog.sh set-version "$VERSION"
+          if ! ./tools/changelog.sh notes > "$RUNNER_TEMP/release-notes.md" 2> "$RUNNER_TEMP/notes-error.txt"; then
+            error=$(cat "$RUNNER_TEMP/notes-error.txt")
+            echo "::error title=No release notes::${error}"
+            exit 1
+          fi
+
+      - name: Create or update draft release
+        if: steps.existing.outputs.state != 'published'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.event.repository.name }} ${{ github.ref_name }}
+          body_path: ${{ runner.temp }}/release-notes.md
+          draft: true
+          prerelease: ${{ contains(needs.build.outputs.version, '-') }}
+          files: dist/*.jar
+          fail_on_unmatched_files: true

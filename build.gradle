@@ -2,16 +2,16 @@ plugins {
     id 'com.diffplug.spotless' version '8.10.3'
     id 'java-library'
     id 'maven-publish'
-    id 'org.danilopianini.git-sensitive-semantic-versioning' version '7.0.24'
 }
 
 group = 'com.majinnaibu.minecraft.plugins'
 description = "Score Keeper"
 
-gitSemVer {
-    minimumVersion.set('0.2.1')
-    versionPrefix.set('v')
-}
+// The version comes from Git tags via tools/compute-version.sh (see CONTRIBUTING.md).
+// CI and the release workflow call the same script, so they always agree with Gradle.
+version = providers.exec {
+    commandLine 'bash', layout.projectDirectory.file('tools/compute-version.sh').asFile.absolutePath
+}.standardOutput.asText.map { it.trim() }.get()
 
 tasks.withType(JavaCompile).configureEach {
 	options.encoding = 'UTF-8'

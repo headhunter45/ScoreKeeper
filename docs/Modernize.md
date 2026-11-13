@@ -17,7 +17,7 @@ The old Maven/Java 17/older Minecraft migration is no longer pending.
 | Domain | Named buckets, initial values, four reporting policies, default/individual assignments |
 | Persistence | Version-3 scores YAML, archives YAML, legacy flat UUID score loading, shutdown save/enable load |
 | Competitions | Target/timed/manual runs, scheduled checks, top-N rankings, score snapshots/restoration |
-| Tooling | Bash build/deploy/server/backup/restore/local and Modrinth publishing; legacy PowerShell subset |
+| Tooling | Bash build/deploy/server/backup/restore/local and Modrinth publishing |
 | Documentation | Contributor entry point, shared agent rules, current domain/integration references, manual release checklist, schema-shaped project metadata |
 
 Implemented is not the same as verified on every advertised server version.
@@ -108,9 +108,8 @@ Choose behavior changes explicitly and add regression tests first.
   or a verified owned PID; never stop another project's Paper process.
 - [ ] Verify the bootstrap helpers select an actual Java 25 JDK, not merely the
   first cached Java executable, and document supported hosts.
-- [ ] Bring PowerShell setup/configuration/process management to deliberate
-  parity with Bash or clearly retain a reduced supported surface. Prefer graceful
-  shutdown over forced termination.
+- [x] Removed the PowerShell helpers; the Bash tooling (WSL on Windows) is the
+  supported surface.
 - [ ] Make deployment select/verify the intended artifact and version instead of
   relying only on newest modification time and a stale-source warning.
 - [ ] Add lightweight local-link and JSON Schema checks for docs/metadata to CI,

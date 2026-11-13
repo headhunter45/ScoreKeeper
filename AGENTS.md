@@ -86,5 +86,4 @@ procedures; [README.md](README.md) is the user-facing behavior reference.
 - Do not run server start/stop, deploy, restore, tagging, or publishing operations
   without explicit authorization. Bash start/stop currently match all local
   Java `paper-*.jar` processes; restore replaces archived top-level items.
-  PowerShell start/stop can force termination. Prefer a clean console `stop`
-  and inspect exact server paths/processes on isolated test machines.
+  Prefer a clean console `stop` and inspect exact server paths/processes on isolated test machines.

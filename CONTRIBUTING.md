@@ -43,7 +43,7 @@ provide that behavior.
 | [ScoreReporting.java](src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/ScoreReporting.java) | Reporting policy enum and parsing |
 | [commands/](src/main/java/com/majinnaibu/minecraft/plugins/scorekeeper/commands/) | Eight executors: arguments, online targets, selected permission guards, and messages |
 | [plugin.yml](src/main/resources/plugin.yml) | Plugin identity, entry point, API version, command declarations, and admin permission |
-| [tools/](tools/) / [PowerShell helpers](tools/powershell/) | Developer/server/release tooling; platform differences are documented below |
+| [tools/](tools/) | Developer/server/release Bash tooling; per-project values live in [project-settings.sh](tools/project-settings.sh) |
 | [.env.example](.env.example) | Bash helper configuration template, not plugin configuration |
 
 ### Architecture in one minute
@@ -142,10 +142,9 @@ Spotless 8.10.3 uses google-java-format 1.36.1, import cleanup/order, and
 are pinned in [wrapper properties](gradle/wrapper/gradle-wrapper.properties);
 the Foojay toolchain resolver is configured in [settings.gradle](settings.gradle).
 
-The plugin artifact is `build/libs/ScoreKeeper-<version>.jar`. Versioning uses
-`org.danilopianini.git-sensitive-semantic-versioning` version 7.0.24, a minimum
-project version of `0.2.1`, and `v`-prefixed tags. Do not hardcode a release
-version in the manifest:
+The plugin artifact is `build/libs/ScoreKeeper-<version>.jar`. The version
+is derived from `v`-prefixed Git tags (see "Versioning, changelog, and releases"
+below). Do not hardcode a release version in the manifest:
 [plugin.yml](src/main/resources/plugin.yml) expands `${version}` during resource processing.
 
 There is **no behavioral automated coverage yet** and no `integrationTest` task.
@@ -157,7 +156,7 @@ changes need link/metadata checks, not a Paper server.
 
 CI in [gradle.yml](.github/workflows/gradle.yml) runs for pushes and pull requests
 to `main` and `develop`, and any `v*` tags. Manual releases are handled via
-[release.yml](.github/workflows/release.yml). It invokes `test`, builds with the
+[release.yml](.github/workflows/release.yml). CI invokes `test`, builds with the
 Bash helper, and uploads jar artifacts (test reports only if present). It does
 not start Paper or verify the two-version runtime compatibility claim.
 
@@ -225,30 +224,13 @@ asks for confirmation, and takes a pre-restore backup unless `--no-backup` is
 specified. It **replaces** top-level items present in the archive. Inspect the
 archive and resolved paths first, and use only a disposable/test server.
 
-## Windows / PowerShell
+## Windows
 
-The PowerShell helpers are not equivalent to the Bash server tooling: they do
-not parse `.env`, download Paper, or provide backup/restore/publishing helpers.
-Install JDK 25, obtain a Paper 26.2 or 26.3 server jar from
-[Paper downloads](https://papermc.io/downloads/paper), and configure it manually.
-Start it once, read/accept the EULA, and then launch it again.
-
-Set real absolute paths in the current PowerShell session:
-
-```powershell
-$env:MINECRAFT_SERVER_PATH = "$HOME\Projects\MCServer"
-$env:MINECRAFT_SERVER_JAR = "paper-26.2-129.jar"
-.\tools\powershell\Build-Plugin.ps1
-.\tools\powershell\Deploy-Plugin.ps1
-Set-Location $env:MINECRAFT_SERVER_PATH
-java -jar $env:MINECRAFT_SERVER_JAR --nogui
-```
-
-Use your actual downloaded jar filename. Build uses the wrapper and your
-configured Java environment. The legacy PowerShell start/stop helpers attempt
-to discover Java processes by command line and forcibly terminate matches.
-Prefer starting Java explicitly and typing `stop` in its console for reliable
-shutdown and persistence.
+The helper scripts in [tools/](tools/) are Bash only. On Windows, use WSL and follow
+the Linux instructions above, or build with `.\gradlew.bat build` and set up and run
+a Paper 26.2 or 26.3 server manually (see
+[Paper downloads](https://papermc.io/downloads/paper)). Prefer typing `stop` in the
+server console for a clean shutdown and persistence.
 
 ## Publishing
 
@@ -268,8 +250,8 @@ Modrinth. Run it **only when intentionally publishing**, after validation:
 3. Build the intended artifact. Optionally set `MODRINTH_FILE` to its exact path;
    otherwise the newest non-`-all.jar` jar is selected.
 4. Run the publisher with JDK 25 available to the wrapper. It checks the jar's
-   manifest version against Gradle, derives changelog notes from commits unless
-   overridden, and infers `beta` for versions containing `-`, otherwise `release`.
+   manifest version against Gradle, takes changelog notes from `changelog.md`
+   unless `MODRINTH_CHANGELOG` overrides them, and infers `beta` for versions containing `-`, otherwise `release`.
    `MODRINTH_VERSION_TYPE` can override this with `alpha`, `beta`, or `release`;
    `MODRINTH_DEPENDENCIES`, if supplied, must be a JSON array.
 
@@ -277,6 +259,44 @@ The publisher needs `curl`, `jq`, and `unzip`; it creates a version, **not** an
 update to the hosted project description. Keep [modrinth-description.md](docs/modrinth-description.md)
 and [modrinth.json](docs/modrinth.json) current and update the hosted description
 separately when releasing.
+
+## Versioning, changelog, and releases
+
+**Version strings** come from Git tags named `v<major>.<minor>.<patch>[-suffix]` and
+are computed by [tools/compute-version.sh](tools/compute-version.sh). Gradle (and so
+`plugin.yml`), CI, and the release workflow all call it, so they always agree.
+`tools/compute-version.sh --explain` shows how a version was chosen.
+
+- A tagged commit uses its tag. With several tags the greatest release tag (no
+  suffix) wins; if all have suffixes, the greatest of those wins.
+- An untagged commit looks at every tag reachable from it and takes the greatest.
+  If that tag ends in `-dev` the version is that tag; otherwise it is the tag with
+  the patch number bumped by one and `-dev` added (`v0.2.2` builds as `0.2.3-dev`).
+- With no tags at all the version is `0.0.1-dev`.
+
+**[changelog.md](changelog.md)** holds the release notes for the next release. Its
+first-level header names the version (`# Changelog for v0.2.3`). Release builds
+rewrite that header to the tagged version in their throwaway checkout, and use
+everything under it (HTML comments excluded) as the GitHub and Modrinth release
+notes; a release with empty notes is refused. [tools/changelog.sh](tools/changelog.sh)
+does the header rewrite and note extraction.
+
+**CI** ([gradle.yml](.github/workflows/gradle.yml)) runs the `Build and Test` job
+for pushes and pull requests to `main` and `develop` and for `v*` tags. Make
+`Build and Test` a required status check on `main` and `develop`.
+Pushing a `v*` tag that is not `-dev` also creates or updates a **draft GitHub
+release** with the built jar and the notes from `changelog.md`. Tags ending in `-dev`
+never get a release.
+
+**Releasing** ([release.yml](.github/workflows/release.yml), run manually with the
+tag): it refuses `-dev` tags, tags whose commit would build as a different version,
+and commits without a successful `Build and Test` run, saying why. Otherwise it
+fast-forwards `main`, creates `release/<tag>`, rebuilds, publishes to Modrinth, and
+publishes the GitHub release (promoting the draft). Tags must be on a commit that
+already contains the files above.
+
+**After a release**, commit a reset `changelog.md` with the next expected version
+(release version + 0.0.1) and tag that commit `v<next>-dev`.
 
 ## Documentation and scraper metadata
 

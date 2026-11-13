@@ -4,6 +4,9 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# shellcheck source=project-settings.sh
+source "$SCRIPT_DIR/project-settings.sh"
+
 load_project_env() {
   local env_line env_key env_value first_char last_char
   while IFS= read -r env_line || [[ -n "$env_line" ]]; do
@@ -41,7 +44,7 @@ elif [[ -z "${MODRINTH_TOKEN:-}" ]]; then
 fi
 
 MODRINTH_TOKEN="${MODRINTH_TOKEN:-}"
-MODRINTH_PROJECT_ID="${MODRINTH_PROJECT_ID:-5NYwxysp}"
+MODRINTH_PROJECT_ID="${MODRINTH_PROJECT_ID:-$MODRINTH_DEFAULT_PROJECT_ID}"
 MODRINTH_VERSION="${MODRINTH_VERSION:-${VERSION:-}}"
 if [[ -z "$MODRINTH_VERSION" ]]; then
   MODRINTH_VERSION=$(
@@ -50,24 +53,10 @@ if [[ -z "$MODRINTH_VERSION" ]]; then
   )
 fi
 
-generate_changelog() {
-  local current_tag previous_tag range commits
-  current_tag="${TAG:-$(git -C "$PROJECT_ROOT" describe --tags --exact-match HEAD 2>/dev/null || true)}"
-  if [[ -n "$current_tag" ]]; then
-    previous_tag=$(git -C "$PROJECT_ROOT" describe --tags --abbrev=0 "${current_tag}^" 2>/dev/null || true)
-    range="${previous_tag:+$previous_tag..}$current_tag"
-  else
-    previous_tag=$(git -C "$PROJECT_ROOT" describe --tags --abbrev=0 2>/dev/null || true)
-    range="${previous_tag:+$previous_tag..}HEAD"
-  fi
-  commits=$(git -C "$PROJECT_ROOT" log --no-merges --format='- %s (%h)' "$range" 2>/dev/null || true)
-  if [[ -z "$commits" ]]; then
-    commits='- No commit messages found for this release.'
-  fi
-  printf '%s\n\n%s\n' "## What's Changed" "$commits"
-}
-
-MODRINTH_CHANGELOG="${MODRINTH_CHANGELOG:-$(generate_changelog)}"
+# Release notes come from changelog.md (see tools/changelog.sh); MODRINTH_CHANGELOG overrides them.
+if [[ -z "${MODRINTH_CHANGELOG:-}" ]]; then
+  MODRINTH_CHANGELOG="$("$PROJECT_ROOT/tools/changelog.sh" notes)" || exit 1
+fi
 MODRINTH_GAME_VERSIONS="${MODRINTH_GAME_VERSIONS:-26.2,26.3}"
 MODRINTH_LOADERS="${MODRINTH_LOADERS:-paper}"
 MODRINTH_VERSION_TYPE="${MODRINTH_VERSION_TYPE:-}"
@@ -94,7 +83,7 @@ case "$MODRINTH_VERSION_TYPE" in
   release|beta|alpha) ;;
   *) echo "Error: MODRINTH_VERSION_TYPE must be release, beta, or alpha." >&2; exit 1 ;;
 esac
-MODRINTH_VERSION_NAME="Score Keeper $MODRINTH_VERSION"
+MODRINTH_VERSION_NAME="$PROJECT_DISPLAY_NAME $MODRINTH_VERSION"
 
 if [[ -n "$MODRINTH_FILE" && "$MODRINTH_FILE" != /* ]]; then
   MODRINTH_FILE="$PROJECT_ROOT/$MODRINTH_FILE"
